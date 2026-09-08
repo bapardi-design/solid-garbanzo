@@ -1,0 +1,40 @@
+# Picks up every card marked "Needs changes", applies the feedback and puts a
+# new version back "In review". Hourly, so feedback turns around within the hour.
+name: Revise posts
+on:
+  schedule:
+    - cron: "15 * * * *"
+  workflow_dispatch:
+
+concurrency: { group: autopilot-state, cancel-in-progress: false }
+
+jobs:
+  revise:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      AUTOPILOT_MODEL: ${{ vars.AUTOPILOT_MODEL }}
+      AUTOPILOT_TZ: ${{ vars.AUTOPILOT_TZ }}
+      BOARD: ${{ vars.BOARD }}
+      STORAGE: ${{ vars.STORAGE }}
+      PUBLISHER: ${{ vars.PUBLISHER }}
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      NOTION_DATA_SOURCE_ID: ${{ secrets.NOTION_DATA_SOURCE_ID }}
+      CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+      CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+      CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run autopilot -- revise
+      - name: Commit new versions
+        run: |
+          git config user.name "autopilot"
+          git config user.email "autopilot@users.noreply.github.com"
+          git add out board
+          git diff --cached --quiet || git commit -m "autopilot: revise posts"
+          git push

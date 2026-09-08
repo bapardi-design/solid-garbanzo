@@ -1,0 +1,139 @@
+# ============================================================
+# BRAND KIT — the single input the AI works from.
+# Everything the pipeline generates is checked against this file.
+# Swap it out per client; keep the structure.
+# ============================================================
+
+name: Female Signature Partnermarketing
+short_name: Female Signature
+owner: Mediha
+website: https://female-signature-partnermarketing.netlify.app
+handles:
+  instagram: "@female.signature"
+  tiktok: "@female.signature"
+  linkedin: "Mediha — Female Signature Partnermarketing"
+
+tagline: More revenue without ad spend.
+one_liner: >-
+  We help female founders build a partner & creator marketing channel that
+  brings in customers through real recommendations instead of paid reach.
+
+audience:
+  primary: >-
+    Female founders and solopreneurs (DACH + international, 28–50) running a
+    product or service brand, currently relying on paid ads or word of mouth.
+  pains:
+    - Ad costs keep rising and results are unpredictable.
+    - They do everything themselves and have no time for another channel.
+    - They feel "salesy" tactics don't fit their brand.
+    - They see other brands grow through collaborations but don't know how to start.
+  desires:
+    - Predictable revenue that doesn't stop when the ad budget stops.
+    - Trust-based growth that matches their values.
+    - A system that runs in the background once set up.
+
+positioning: >-
+  Partner and creator marketing is the growth lever most female founders
+  leave completely untapped. You don't pay for reach or clicks — you pay for
+  real recommendations that actually sell.
+
+offers:
+  freebie:
+    name: The Partner Marketing Guide
+    url: https://female-signature-partnermarketing.netlify.app/#10
+    cta_short: Get the free guide
+    cta_long: Comment GUIDE or DM me and I'll send you the free Partner Marketing Guide.
+  core:
+    name: Female Signature Partnermarketing Programme
+    cta_short: Book a call
+    cta_long: Book a free strategy call — link in bio.
+
+voice:
+  summary: >-
+    Warm, direct, peer-to-peer. Mediha talks like a founder friend who has done
+    it, not like an agency. Short sentences. Concrete numbers and examples.
+    Encouraging, never preachy. Confident about the method, humble about
+    the person.
+  tone_words: [warm, direct, clear, encouraging, practical, confident]
+  we_say:
+    - "real recommendations"
+    - "partner & creator marketing"
+    - "female founders"
+    - "runs in the background"
+    - "without ad spend"
+  we_avoid:
+    - "girlboss"
+    - "hustle"
+    - "crush it"
+    - "10x"
+    - "guru"
+    - "secret"
+    - "hack"
+    - influencer marketing (say creator marketing)
+    - excessive emojis (max 2 per caption)
+    - exclamation-mark chains
+  language: en
+  formality: informal (address the reader as "you")
+  emoji_policy: sparingly, max 2 per caption, never in headlines
+  signature_signoff: "— Mediha"
+
+pillars:
+  - key: education
+    name: Education
+    share: 40
+    description: How partner & creator marketing works, step by step. Frameworks, checklists, definitions.
+  - key: proof
+    name: Proof & stories
+    share: 25
+    description: Client wins, before/after numbers, mini case studies, founder stories.
+  - key: mindset
+    name: Mindset & myths
+    share: 20
+    description: Busting myths about ads, "salesy" collaborations, and doing it all alone.
+  - key: behind
+    name: Behind the scenes
+    share: 15
+    description: Mediha's own process, tools, week-in-the-life, personal takes.
+
+visual:
+  colors:
+    primary: "#1F1B2E"     # deep ink
+    secondary: "#F6EFE9"   # warm paper
+    accent: "#C96A4A"      # terracotta
+    accent_soft: "#E9C9BA"
+    text_on_dark: "#F6EFE9"
+    text_on_light: "#1F1B2E"
+  fonts:
+    heading: "'Fraunces', 'Playfair Display', Georgia, serif"
+    body: "'Inter', 'Helvetica Neue', Arial, sans-serif"
+    google_fonts_url: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap"
+  logo_text: FEMALE SIGNATURE
+  style_notes: >-
+    Editorial, calm, lots of whitespace. One big serif headline per slide,
+    small sans body. Terracotta accents only for the one thing that matters.
+    No stock photos, no gradients.
+
+channels:
+  instagram:
+    enabled: true
+    formats: [carousel, single, story]
+    caption_max: 2200
+    hashtags: 5
+    notes: Hook in the first line. Line breaks between thoughts. CTA at the end.
+  tiktok:
+    enabled: true
+    formats: [carousel]
+    caption_max: 2200
+    hashtags: 4
+    notes: Photo-mode carousels. Caption short, conversational, question at the end.
+  linkedin:
+    enabled: true
+    formats: [carousel, single]
+    caption_max: 3000
+    hashtags: 3
+    notes: Slightly more professional. Open with a bold one-line statement. No emojis in first line.
+
+compliance:
+  - Never promise specific revenue figures unless they come from the content plan.
+  - Never name a client without "(name changed)" unless the plan marks the story as approved.
+  - Always include the CTA defined for the post.
