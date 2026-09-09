@@ -118,3 +118,14 @@ test('human manager can take over, buy, list, renew, and gets sacked by the boar
   assert.ok(world.humanClubId === clubId || world.careerOver !== null);
   assert.deepEqual(checkInvariants(world), []);
 });
+
+test('careerReport renders once a season is complete', async () => {
+  const { createGame, step, careerReport } = await import('../browser/engine.js');
+  const A = await import('../actions.js');
+  const game = createGame({ ...small, seed: 'report-career' });
+  A.takeOverClub(game.ctx, A.jobOffers(game.ctx)[3].club.id, 'Reporter');
+  assert.equal(careerReport(game), null);
+  step(game, 400);
+  const html = careerReport(game);
+  assert.ok(html && html.includes('Simulation Annual') && html.includes('Final standings'));
+});

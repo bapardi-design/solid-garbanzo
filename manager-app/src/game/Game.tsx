@@ -4,7 +4,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import Engine, { type Event, type Fixture } from 'sim-engine';
 import { LIMITS } from '@/lib/entitlements';
 import { useSession } from './session';
-import { cloud, local, StoreError, type CareerRecord } from './store';
+import { cloud, local, StoreError, type CareerRecord, type InboxItem } from './store';
 import { summarise } from './summary';
 import { money } from './format';
 import { FinancesPanel, FixturesPanel, MarketPanel, OverviewPanel, SquadPanel, TablePanel, TacticsPanel } from './panels';
@@ -12,7 +12,7 @@ import { UpgradeButton } from '@/components/UpgradeButton';
 
 type GameT = ReturnType<typeof Engine.resumeGame>;
 type Tab = 'overview' | 'squad' | 'market' | 'tactics' | 'fixtures' | 'table' | 'finances';
-export interface NewsItem { day: number; season: number; text: string }
+export type NewsItem = InboxItem;
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' }, { id: 'squad', label: 'Squad' }, { id: 'market', label: 'Transfers' }, { id: 'tactics', label: 'Tactics' },
@@ -28,8 +28,11 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [notice, setNotice] = useState<{ kind: 'info' | 'error' | 'good'; text: string } | null>(null);
-  const [news, setNews] = useState<NewsItem[]>([]);
-  const [lastResults, setLastResults] = useState<string[]>([]);
+  const [news, setNews] = useState<NewsItem[]>(() => record.summary?.inbox ?? []);
+  const [lastResults, setLastResults] = useState<string[]>(() => (record.summary?.lastResults ?? []).filter((id) => game.world.fixtures[id]?.played));
+  const newsRef = useRef<{ news: NewsItem[]; lastResults: string[] }>({ news: [], lastResults: [] });
+  newsRef.current = { news, lastResults };
+  const [reportBusy, setReportBusy] = useState(false);
   const [paywall, setPaywall] = useState(false);
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved');
 
@@ -41,7 +44,7 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
   const save = useCallback(async () => {
     const g = gameRef.current;
     setSaveState('saving');
-    const rec: CareerRecord = { ...record, season: g.world.season, day: g.world.day, summary: summarise(g, clubId), snapshot: Engine.snapshotGame(g), updatedAt: new Date().toISOString() };
+    const rec: CareerRecord = { ...record, season: g.world.season, day: g.world.day, summary: { ...summarise(g, clubId), inbox: newsRef.current.news.slice(0, 60), lastResults: newsRef.current.lastResults }, snapshot: Engine.snapshotGame(g), updatedAt: new Date().toISOString() };
     try {
       if (record.storage === 'local') await local.put(rec); else await cloud.update(rec);
       setSaveState('saved');
@@ -118,6 +121,22 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
     tick();
   }
 
+  /** Pro feature: open the multi-season HTML report in a new tab. */
+  function openReport() {
+    const g = gameRef.current;
+    if (session.plan !== 'pro') { setPaywall(true); return; }
+    if (g.seasons.length === 0) { setNotice({ kind: 'info', text: 'The season report unlocks once your first season is complete.' }); return; }
+    setReportBusy(true);
+    try {
+      const html = Engine.careerReport(g);
+      if (!html) return;
+      const page = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head><body>${html}</body></html>`;
+      const url = URL.createObjectURL(new Blob([page], { type: 'text/html' }));
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } finally { setReportBusy(false); }
+  }
+
   function afterAction(result: { ok: boolean; message: string }) {
     setNotice({ kind: result.ok ? 'good' : 'error', text: result.message });
     if (result.ok) { setSaveState('unsaved'); rerender(); void save(); }
@@ -135,6 +154,7 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
         <div className="actions">
           <span className="muted mono">{saveState === 'saving' ? 'saving…' : saveState === 'saved' ? 'saved' : saveState === 'error' ? 'not saved' : 'unsaved'}</span>
           <button className="btn" onClick={() => void save()} disabled={busy}>Save</button>
+          <button className="btn" onClick={openReport} disabled={busy || reportBusy} title={session.plan === 'pro' ? 'Charts, tables and explained matches for every completed season' : 'Pro feature'}>Season report{session.plan === 'pro' ? '' : ' · Pro'}</button>
           <Link href="/play" className="btn">Careers</Link>
           <button className="btn primary" onClick={continueToNextMatch} disabled={busy || world.careerOver !== null}>
             {busy ? 'Playing…' : world.careerOver ? 'Career over' : nextFixture ? `Play to next match` : Engine.daysLeftInSeason(world) === 0 ? 'Start next season' : 'Play to season end'}
@@ -165,9 +185,9 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
       {paywall ? (
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="paywall-title">
           <div className="modal">
-            <p className="eyebrow">Season limit</p>
-            <h2 id="paywall-title">Free careers stop after season {LIMITS.free.maxSeasons}</h2>
-            <p className="muted">Pro removes the season limit, keeps careers in the cloud, and adds season reports. This career stays exactly as it is until you upgrade.</p>
+            <p className="eyebrow">Pro</p>
+            <h2 id="paywall-title">{Engine.daysLeftInSeason(world) === 0 && world.season >= maxSeasons ? `Free careers stop after season ${LIMITS.free.maxSeasons}` : 'Season reports are a Pro feature'}</h2>
+            <p className="muted">Pro removes the {LIMITS.free.maxSeasons}-season limit, keeps careers in the cloud, and adds season reports with charts, final tables, honours and explained matches. This career stays exactly as it is until you upgrade.</p>
             <UpgradeButton signedIn={session.signedIn} enabled={session.paymentsEnabled} label="Upgrade to Pro" />
             <div className="actions"><button className="btn" onClick={() => setPaywall(false)}>Not now</button><Link href="/pricing" className="btn">See plans</Link></div>
           </div>

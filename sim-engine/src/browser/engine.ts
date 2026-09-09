@@ -19,6 +19,8 @@ import { selectXI } from '../matchday/xi.js';
 import { contractOf } from '../core/schema.js';
 import { wageDemand, playerValue, effectiveRating } from '../rating.js';
 import { inTransferWindow } from '../engines/transfers.js';
+import { renderReport } from '../sim/report.js';
+import type { RunResult } from '../sim/runner.js';
 
 export interface Game {
   ctx: Ctx;
@@ -79,9 +81,23 @@ export function fixturesOnDay(world: World, day: number): Fixture[] {
   return (world.idx.fixturesByDay[day] ?? []).map((id) => world.fixtures[id]);
 }
 
+/** Self-contained HTML report for the completed seasons of a career, or null before the first season ends. */
+export function careerReport(game: Game): string | null {
+  if (game.seasons.length === 0) return null;
+  const result: RunResult = {
+    world: game.world,
+    rng: game.ctx.rng,
+    seasons: game.seasons.map((metrics) => ({ season: metrics.season, metrics, hash: quickHash(game.world), invariantErrors: [], snapshotFile: null, elapsedMs: 0 })),
+    events: [],
+    totalEvents: game.seasons.reduce((s, m) => s + Object.values(m.eventCounts).reduce((a, b) => a + b, 0), 0),
+    elapsedMs: 0,
+  };
+  return renderReport(result);
+}
+
 export const api = {
   ...actions,
-  createGame, resumeGame, snapshotGame, step, daysLeftInSeason, quickHash, fixturesOnDay, selectXI, contractOf, wageDemand, playerValue, effectiveRating, inTransferWindow,
+  createGame, resumeGame, snapshotGame, step, daysLeftInSeason, quickHash, fixturesOnDay, careerReport, selectXI, contractOf, wageDemand, playerValue, effectiveRating, inTransferWindow,
   computeTable, explainMatch, overall, averageRating, squad, seasonDay, leagueOf, tierFromLeagueId, checkInvariants,
   DEFAULT_CONFIG,
 };
