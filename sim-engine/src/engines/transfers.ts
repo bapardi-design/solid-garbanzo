@@ -5,6 +5,7 @@ import { POSITIONS, bottomTier, contractOf, isRealWorld, nextId, seasonDay, squa
 import { overall, wageDemand, weeklyWageBill } from '../rating.js';
 import { FORMATIONS } from '../matchday/xi.js';
 import { contractLengthFor, makeContract } from '../world/generate.js';
+import { aiBidsForHuman } from './bids.js';
 
 export const SUMMER_WINDOW: [number, number] = [0, 27];
 export const WINTER_WINDOW: [number, number] = [168, 195];
@@ -174,6 +175,7 @@ export function runTransferDay(ctx: Ctx): void {
     }
   }
   runLoans(ctx, sold);
+  aiBidsForHuman(ctx);
 }
 
 function runLoans(ctx: Ctx, moved: Set<string>): void {

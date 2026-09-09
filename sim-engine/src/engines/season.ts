@@ -12,6 +12,7 @@ import { contractLengthFor, generatePlayer, makeContract } from '../world/genera
 import { wageDemand } from '../rating.js';
 import type { Position } from '../core/schema.js';
 import { CONTINENTAL_CUP_NAME, NATIONS } from '../world/nations.js';
+import { giveAwards } from './press.js';
 
 export { tierFromLeagueId };
 
@@ -258,6 +259,7 @@ export function endSeason(ctx: Ctx): void {
   boardReview(ctx, true);
   expireManagerContracts(ctx);
   ctx.emit('SEASON_ENDED', { season: world.season, summary, leagueMoves });
+  giveAwards(ctx, summary);
 
   returnLoans(ctx);
   renewContracts(ctx, true);

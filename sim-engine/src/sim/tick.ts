@@ -8,9 +8,12 @@ import { postMatchMorale, weeklyMorale } from '../engines/morale.js';
 import { advanceCups, endSeason, startSeason } from '../engines/season.js';
 import { inTransferWindow, renewContracts, runTransferDay } from '../engines/transfers.js';
 import { simulateMatch } from '../matchday/match.js';
+import { dailyPress } from '../engines/press.js';
+import { expireBids } from '../engines/bids.js';
 
 export function tickDay(ctx: Ctx): void {
   const { world } = ctx;
+  ctx.today.length = 0;
   const day = world.day + 1;
   ctx.emit('DAY_ADVANCED', { day });
   const sd = seasonDay(world);
@@ -57,5 +60,7 @@ export function tickDay(ctx: Ctx): void {
     boardReview(ctx, false);
     fillManagerVacancies(ctx);
   }
+  expireBids(ctx);
   if (sd2 === world.seasonLength - 1) endSeason(ctx);
+  dailyPress(ctx);
 }

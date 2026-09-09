@@ -52,6 +52,26 @@ function detachManager(w: World, managerId: string, clubId: string): void {
   if (c && c.managerId === managerId) c.managerId = null;
 }
 
+/**
+ * Keeps the world bounded: fixtures older than the previous season are
+ * dropped and last season's match reports are kept only for the human club.
+ */
+function pruneFixtures(w: World, season: number): void {
+  const human = w.humanClubId;
+  for (const id of Object.keys(w.fixtures)) {
+    const f = w.fixtures[id];
+    if (f.season < season - 1) {
+      delete w.fixtures[id];
+      const day = w.idx.fixturesByDay[f.day];
+      if (day) { const i = day.indexOf(id); if (i >= 0) day.splice(i, 1); if (day.length === 0) delete w.idx.fixturesByDay[f.day]; }
+      const comp = w.idx.fixturesByCompetition[f.competitionId];
+      if (comp) { const i = comp.indexOf(id); if (i >= 0) comp.splice(i, 1); }
+    } else if (f.season < season && f.report && f.homeClubId !== human && f.awayClubId !== human) {
+      f.report = { ...f.report, factors: { home: [], away: [] } };
+    }
+  }
+}
+
 export function reduce(w: World, e: Event): void {
   switch (e.type) {
     case 'WORLD_CREATED': {
@@ -149,6 +169,7 @@ export function reduce(w: World, e: Event): void {
       w.season = e.payload.season;
       w.seasonStartDay = e.payload.startDay;
       for (const c of Object.values(w.clubs)) { c.ledger = {}; c.form = []; }
+      pruneFixtures(w, e.payload.season);
       break;
     }
     case 'DAY_ADVANCED': {
@@ -358,6 +379,18 @@ export function reduce(w: World, e: Event): void {
       club.managerId = m.id;
       w.humanClubId = club.id;
       w.careerOver = null;
+      break;
+    }
+    case 'MANAGER_MOVED': {
+      const m = w.managers[e.payload.managerId];
+      const to = w.clubs[e.payload.toClubId];
+      if (e.payload.fromClubId) detachManager(w, e.payload.managerId, e.payload.fromClubId);
+      if (to.managerId && to.managerId !== m.id) detachManager(w, to.managerId, to.id);
+      m.clubId = to.id;
+      m.unemployedSince = null;
+      m.contractEndSeason = e.payload.contractEndSeason;
+      to.managerId = m.id;
+      if (w.humanClubId === e.payload.fromClubId || w.humanClubId === null) { w.humanClubId = to.id; w.careerOver = null; }
       break;
     }
     case 'PLAYER_LISTED': {

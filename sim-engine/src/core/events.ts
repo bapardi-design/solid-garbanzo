@@ -42,7 +42,7 @@ export interface EventPayloads {
   LOAN_RETURNED: { record: TransferRecord };
   PLAYER_RETIRED: { playerId: string; clubId: string | null; reason: 'age' | 'unattached' };
   MANAGER_SACKED: { managerId: string; clubId: string; reason: string };
-  MANAGER_APPOINTED: { managerId: string; clubId: string; contractEndSeason: number };
+  MANAGER_APPOINTED: { managerId: string; clubId: string; contractEndSeason: number; reason?: 'appointment' | 'renewal' };
   MANAGER_CONTRACT_EXPIRED: { managerId: string; clubId: string };
   CUP_ROUND_ADVANCED: { competitionId: string; round: number; alive: string[]; winnerId: string | null };
   BUDGETS_SET: { budgets: Record<string, { wageBudget: number; transferBudget: number; boardTarget: number }> };
@@ -54,6 +54,7 @@ export interface EventPayloads {
   PLAYER_UNLISTED: { playerId: string };
   PLAYER_RELEASED: { playerId: string; clubId: string; payoff: number };
   CAREER_ENDED: { clubId: string; reason: string };
+  MANAGER_MOVED: { managerId: string; fromClubId: string | null; toClubId: string; contractEndSeason: number };
   NEWS_PUBLISHED: { items: NewsItem[] };
   BID_RECEIVED: { bid: TransferBid };
   BID_RESOLVED: { bidId: string; accepted: boolean };

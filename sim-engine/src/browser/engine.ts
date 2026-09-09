@@ -5,9 +5,9 @@
 import { createCtx, type Ctx } from '../core/context.js';
 import type { Event } from '../core/events.js';
 import { Rng, hashString } from '../core/rng.js';
-import { DEFAULT_CONFIG, createEmptyWorld, leagueOf, seasonDay, squad, type Fixture, type World, type WorldConfig } from '../core/schema.js';
+import { CUSTOM_CONFIG, DEFAULT_CONFIG, createEmptyWorld, isRealWorld, leagueOf, nationFromLeagueId, seasonDay, squad, tierOfClub, type Fixture, type World, type WorldConfig } from '../core/schema.js';
 import { generateWorld } from '../world/generate.js';
-import { computeTable } from '../matchday/table.js';
+import { computeGroupTable, computeTable, positionOf } from '../matchday/table.js';
 import { explainMatch } from '../matchday/match.js';
 import { overall, averageRating } from '../rating.js';
 import { tierFromLeagueId } from '../core/schema.js';
@@ -17,8 +17,11 @@ import { checkInvariants } from '../sim/invariants.js';
 import * as actions from '../actions.js';
 import { selectXI } from '../matchday/xi.js';
 import { contractOf } from '../core/schema.js';
-import { wageDemand, playerValue, effectiveRating } from '../rating.js';
-import { inTransferWindow } from '../engines/transfers.js';
+import { wageDemand, playerValue, effectiveRating, weeklyWageBill, squadStrength } from '../rating.js';
+import { inTransferWindow, signingsThisWindow, SUMMER_WINDOW, WINTER_WINDOW } from '../engines/transfers.js';
+import { currencyFor, money, ordinal, roundLabel } from '../engines/press.js';
+import { NATIONS, CONTINENTAL_CUP_NAME } from '../world/nations.js';
+import { REAL_WORLD } from '../world/data/index.js';
 import { renderReport } from '../sim/report.js';
 import type { RunResult } from '../sim/runner.js';
 
@@ -98,14 +101,16 @@ export function careerReport(game: Game): string | null {
 export const api = {
   ...actions,
   createGame, resumeGame, snapshotGame, step, daysLeftInSeason, quickHash, fixturesOnDay, careerReport, selectXI, contractOf, wageDemand, playerValue, effectiveRating, inTransferWindow,
-  computeTable, explainMatch, overall, averageRating, squad, seasonDay, leagueOf, tierFromLeagueId, checkInvariants,
-  DEFAULT_CONFIG,
+  computeTable, computeGroupTable, positionOf, explainMatch, overall, averageRating, squad, seasonDay, leagueOf, tierFromLeagueId, tierOfClub, nationFromLeagueId, isRealWorld, checkInvariants,
+  weeklyWageBill, squadStrength, signingsThisWindow, currencyFor, money, ordinal, roundLabel,
+  DEFAULT_CONFIG, CUSTOM_CONFIG, NATIONS, REAL_WORLD, CONTINENTAL_CUP_NAME, SUMMER_WINDOW, WINTER_WINDOW,
 };
 export default api;
 
-export type { World, WorldConfig, Player, Club, Manager, Contract, Fixture, Competition, CompetitionLeague, CompetitionCup, MatchReport, GoalFactor, GoalEvent, Tactic, Position, TransferRecord, SeasonSummary } from '../core/schema.js';
+export type { World, WorldConfig, Player, Club, Manager, Contract, Fixture, Competition, CompetitionLeague, CompetitionCup, MatchReport, GoalFactor, GoalEvent, Tactic, Position, TransferRecord, SeasonSummary, Nation, NewsItem, NewsCategory, TransferBid } from '../core/schema.js';
 export type { Event, EventType } from '../core/events.js';
 export type { Standing } from '../matchday/table.js';
 export type { Selection } from '../matchday/xi.js';
 export type { SeasonMetrics } from '../sim/metrics.js';
-export type { MarketEntry, BoardStatus, RenewalTerms, ActionResult } from '../actions.js';
+export type { MarketEntry, BoardStatus, RenewalTerms, ActionResult, Vacancy, PlayerQuery, PlayerHit, ScoutReport, Honour, NewsQuery } from '../actions.js';
+export type { Award } from '../core/events.js';
