@@ -1,0 +1,43 @@
+# Posts everything that is "Ready to post" and due. Every 30 minutes.
+# The publish window (AUTOPILOT_PUBLISH_WINDOW_MINUTES, default 30) matches this cadence.
+name: Publish due posts
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      all:
+        description: "Ignore the schedule and post every 'Ready to post' card now"
+        type: boolean
+        default: false
+
+concurrency: { group: autopilot-state, cancel-in-progress: false }
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    env:
+      AUTOPILOT_TZ: ${{ vars.AUTOPILOT_TZ }}
+      BOARD: ${{ vars.BOARD }}
+      STORAGE: ${{ vars.STORAGE }}
+      PUBLISHER: ${{ vars.PUBLISHER }}
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      NOTION_DATA_SOURCE_ID: ${{ secrets.NOTION_DATA_SOURCE_ID }}
+      AYRSHARE_API_KEY: ${{ secrets.AYRSHARE_API_KEY }}
+      AYRSHARE_PROFILE_KEY: ${{ secrets.AYRSHARE_PROFILE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Publish
+        run: npm run autopilot -- publish ${{ inputs.all == true && '--all' || '' }}
+      - name: Commit publish state (per-channel outcomes, local board cards)
+        if: always()
+        run: |
+          git config user.name "autopilot"
+          git config user.email "autopilot@users.noreply.github.com"
+          git add out board
+          git diff --cached --quiet || git commit -m "autopilot: publish"
+          git push
