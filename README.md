@@ -101,3 +101,7 @@ npm test
 ```
 
 Rendering needs Chromium. Either `npx playwright install chromium` or point `AUTOPILOT_CHROMIUM` at an existing Chrome binary.
+
+## Also in this repository
+
+- [`sim-engine/`](sim-engine/README.md): a deterministic, event-sourced football club management simulation engine with its own package, tests, and CI workflow.

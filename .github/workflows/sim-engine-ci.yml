@@ -1,0 +1,27 @@
+name: Sim engine CI
+
+on:
+  push:
+    branches: [main]
+    paths: ['sim-engine/**', '.github/workflows/sim-engine-ci.yml']
+  pull_request:
+    paths: ['sim-engine/**', '.github/workflows/sim-engine-ci.yml']
+
+defaults:
+  run:
+    working-directory: sim-engine
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sim-engine/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: node dist/sim/cli.js verify --seasons 2 --seed ci
