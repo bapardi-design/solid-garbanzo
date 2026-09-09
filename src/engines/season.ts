@@ -119,7 +119,9 @@ export function endSeason(ctx: Ctx): void {
     .filter((c): c is CompetitionLeague => c.kind === 'league' && c.season === world.season)
     .sort((a, b) => a.tier - b.tier);
 
-  const summary: SeasonSummary = { season: world.season, champions: {}, promoted: [], relegated: [], topScorer: null };
+  const squadSizes: Record<string, number> = {};
+  for (const clubId of Object.keys(world.clubs).sort()) squadSizes[clubId] = (world.idx.squadByClub[clubId] ?? []).length;
+  const summary: SeasonSummary = { season: world.season, champions: {}, promoted: [], relegated: [], topScorer: null, squadSizes };
   const leagueMoves: Record<string, string> = {};
   const prizes: FinanceEntry[] = [];
   const tables = new Map<number, ReturnType<typeof computeTable>>();
@@ -148,8 +150,9 @@ export function endSeason(ctx: Ctx): void {
     if (!(club.id in leagueMoves)) leagueMoves[club.id] = leagueId(tierFromLeagueId(club.leagueId));
   }
   let top: SeasonSummary['topScorer'] = null;
-  for (const id in world.players) {
+  for (const id of Object.keys(world.players).sort()) {
     const p = world.players[id];
+    if (p.retired) continue;
     if (!top || p.stats.goals > top.goals) top = { playerId: id, goals: p.stats.goals };
   }
   summary.topScorer = top;

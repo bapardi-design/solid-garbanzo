@@ -184,6 +184,8 @@ export interface SeasonSummary {
   promoted: string[];
   relegated: string[];
   topScorer: { playerId: string; goals: number } | null;
+  /** Squad size per club at the final whistle, before contract expiries. */
+  squadSizes: Record<string, number>;
 }
 
 export interface Indexes {

@@ -105,7 +105,7 @@ export function seasonMetrics(world: World, season: number, events: readonly Eve
     sackings,
     retirements,
     droppedOut,
-    avgSquadSize: round(squadTotal / Math.max(1, clubCount), 1),
+    avgSquadSize: round(summary ? Object.values(summary.squadSizes).reduce((a, b) => a + b, 0) / Math.max(1, clubCount) : squadTotal / Math.max(1, clubCount), 1),
     balanceByTier: avg(balanceByTier),
     insolventClubs: insolvent,
     avgOverallByTier: avg(ovrByTier),

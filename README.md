@@ -17,6 +17,7 @@ npm run sim -- run --seasons 3 --seed alpha          # simulate and print metric
 npm run sim -- run --seasons 1 --explain 3            # also print goal-factor breakdowns
 npm run sim -- verify --seasons 2 --seed alpha        # run twice, compare season hashes
 npm run sim -- run --seasons 2 --out out/             # write a JSON snapshot per season
+npm run sim -- resume --from out/world_s2.json --seasons 1   # continue from a snapshot
 npm test
 ```
 

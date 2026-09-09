@@ -6,12 +6,15 @@ import { createEmptyWorld, type World, type WorldConfig } from '../core/schema.j
 import { generateWorld } from '../world/generate.js';
 import { checkInvariants } from './invariants.js';
 import { seasonMetrics, type SeasonMetrics } from './metrics.js';
-import { hashWorld, saveSnapshot } from './snapshot.js';
+import { hashWorld, saveSnapshot, type Snapshot } from './snapshot.js';
 import { tickDay } from './tick.js';
 
 export interface RunOptions {
   config: WorldConfig;
+  /** Number of seasons to simulate (after the resume point, if any). */
   seasons: number;
+  /** Continue from a saved snapshot instead of generating a new world. */
+  resumeFrom?: Snapshot;
   /** Directory for per-season snapshots; omit to keep everything in memory. */
   outDir?: string;
   /** Throw when invariants fail (default true). */
@@ -32,6 +35,7 @@ export interface SeasonResult {
 
 export interface RunResult {
   world: World;
+  rng: Rng;
   seasons: SeasonResult[];
   events: Event[];
   totalEvents: number;
@@ -45,19 +49,26 @@ export function createWorld(config: WorldConfig): Ctx {
   return ctx;
 }
 
+export function resumeWorld(snapshot: Snapshot): Ctx {
+  return createCtx(structuredClone(snapshot.world), new Rng(snapshot.rng));
+}
+
 export function runSeasons(opts: RunOptions): RunResult {
   const started = Date.now();
-  const ctx = createWorld(opts.config);
-  const { world } = ctx;
+  const ctx = opts.resumeFrom ? resumeWorld(opts.resumeFrom) : createWorld(opts.config);
+  const { world, rng } = ctx;
   const strict = opts.strict ?? true;
   const seasons: SeasonResult[] = [];
   const allEvents: Event[] = opts.keepEvents ? [...ctx.log] : [];
   let totalEvents = ctx.log.length;
   ctx.log.length = 0;
 
+  // End of the current season, or of the next one when the world already sits on a season end.
+  let firstSeasonEnd = world.day < 0 ? world.seasonLength - 1 : world.seasonStartDay + world.seasonLength - 1;
+  if (world.day >= firstSeasonEnd) firstSeasonEnd += world.seasonLength;
   for (let s = 0; s < opts.seasons; s++) {
     const seasonStart = Date.now();
-    const target = (s + 1) * world.seasonLength - 1;
+    const target = firstSeasonEnd + s * world.seasonLength;
     while (world.day < target) tickDay(ctx);
     const season = world.season;
     const invariantErrors = checkInvariants(world);
@@ -66,7 +77,7 @@ export function runSeasons(opts: RunOptions): RunResult {
     }
     const metrics = seasonMetrics(world, season, ctx.log);
     const hash = hashWorld(world);
-    const snapshotFile = opts.outDir ? saveSnapshot(opts.outDir, world, `s${season}`) : null;
+    const snapshotFile = opts.outDir ? saveSnapshot(opts.outDir, world, rng.state(), `s${season}`) : null;
     const result: SeasonResult = { season, metrics, hash, invariantErrors, snapshotFile, elapsedMs: Date.now() - seasonStart };
     seasons.push(result);
     opts.onSeason?.(result);
@@ -74,5 +85,5 @@ export function runSeasons(opts: RunOptions): RunResult {
     if (opts.keepEvents) allEvents.push(...ctx.log);
     ctx.log.length = 0;
   }
-  return { world, seasons, events: allEvents, totalEvents, elapsedMs: Date.now() - started };
+  return { world, rng, seasons, events: allEvents, totalEvents, elapsedMs: Date.now() - started };
 }

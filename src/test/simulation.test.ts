@@ -42,3 +42,41 @@ test('different seeds diverge', () => {
   const b = runSeasons({ config: { ...small, seed: 'other' }, seasons: 1 });
   assert.notEqual(a.seasons[0].hash, b.seasons[0].hash);
 });
+
+test('resuming from a snapshot continues identically to an uninterrupted run', () => {
+  const straight = runSeasons({ config: small, seasons: 2 });
+  const first = runSeasons({ config: small, seasons: 1 });
+  const resumed = runSeasons({ config: small, seasons: 1, resumeFrom: { version: 1, world: first.world, rng: first.rng.state() } });
+  assert.equal(resumed.seasons[0].season, 2);
+  assert.equal(resumed.seasons[0].hash, straight.seasons[1].hash);
+});
+
+test('cup with a non power-of-two field completes with byes and one winner', () => {
+  const cfg = { ...small, leagues: 1, clubsPerLeague: 6 }; // 6 entrants -> 2 byes in round 1
+  const result = runSeasons({ config: cfg, seasons: 1 });
+  const cup = Object.values(result.world.competitions).find((c) => c.kind === 'cup');
+  assert.ok(cup && cup.kind === 'cup');
+  assert.equal(cup.totalRounds, 3);
+  assert.ok(cup.complete && cup.winnerId);
+  const fixtures = Object.values(result.world.fixtures).filter((f) => f.competitionId === cup.id);
+  assert.equal(fixtures.length, 5); // 2 + 2 + 1
+  assert.ok(fixtures.every((f) => f.played && f.winnerId));
+});
+
+test('promotion and relegation swap clubs between tiers', () => {
+  const result = runSeasons({ config: small, seasons: 1 });
+  const summary = result.world.history[0];
+  assert.equal(summary.promoted.length, 1);
+  assert.equal(summary.relegated.length, 1);
+  const w = result.world;
+  assert.equal(w.clubs[summary.promoted[0]].leagueId, 'L1');
+  assert.equal(w.clubs[summary.relegated[0]].leagueId, 'L2');
+  assert.ok(summary.topScorer && !w.players[summary.topScorer.playerId].retired || summary.topScorer === null);
+});
+
+test('transfer market produces activity in the first season', () => {
+  const result = runSeasons({ config: { ...DEFAULT_CONFIG, seed: 'market' }, seasons: 1 });
+  const t = result.seasons[0].metrics.transfers;
+  assert.ok((t.transfer ?? 0) + (t.free ?? 0) > 0, `no signings: ${JSON.stringify(t)}`);
+  assert.ok((t.renewal ?? 0) > 0);
+});

@@ -3,11 +3,13 @@
  * sim run     --seasons 2 --seed abc --leagues 2 --clubs 12 --squad 24 [--out DIR] [--explain N] [--quiet]
  * sim verify  same flags; runs twice and compares end-of-season hashes
  * sim explain --seasons 1 ... --explain 5 ; prints goal factor breakdowns
+ * sim resume  --from out/world_s2.json --seasons 2 [--out DIR] ; continue from a snapshot
  */
 import { DEFAULT_CONFIG, type WorldConfig } from '../core/schema.js';
 import { explainMatch } from '../matchday/match.js';
 import { computeTable } from '../matchday/table.js';
 import { runSeasons, type SeasonResult } from './runner.js';
+import { loadSnapshot } from './snapshot.js';
 
 interface Args { command: string; flags: Record<string, string | boolean> }
 
@@ -61,8 +63,14 @@ export function main(argv: string[]): number {
   const quiet = Boolean(flags.quiet);
   const outDir = typeof flags.out === 'string' ? flags.out : undefined;
 
-  if (command === 'run' || command === 'explain') {
-    const result = runSeasons({ config, seasons, outDir, strict: !flags.lenient, onSeason: quiet ? undefined : printSeason });
+  if (command === 'run' || command === 'explain' || command === 'resume') {
+    let resumeFrom;
+    if (command === 'resume') {
+      if (typeof flags.from !== 'string') { console.error('resume needs --from <snapshot.json>'); return 2; }
+      resumeFrom = loadSnapshot(flags.from);
+      console.log(`resuming ${flags.from} at day ${resumeFrom.world.day}, season ${resumeFrom.world.season}`);
+    }
+    const result = runSeasons({ config: resumeFrom ? resumeFrom.world.config : config, seasons, resumeFrom, outDir, strict: !flags.lenient, onSeason: quiet ? undefined : printSeason });
     const world = result.world;
     if (!quiet) {
       for (const comp of Object.values(world.competitions)) {
