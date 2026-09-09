@@ -1,0 +1,331 @@
+<title>Matchday Explorer</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{color-scheme:light;--bg:#f4f6f2;--surface:#fbfcfa;--surface-2:#eef2ec;--ink:#14211b;--muted:#5b6862;--rule:#d7ddd6;--accent:#1e6e46;--accent-ink:#ffffff;--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--up:#2a78d6;--down:#e34948;--critical:#d03b3b;--focus:#2a78d6;--display:"Barlow Condensed","Arial Narrow",Impact,sans-serif;--body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;--mono:"IBM Plex Mono",Menlo,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#101613;--surface:#171f1a;--surface-2:#1e2823;--ink:#eef2ec;--muted:#a3ada6;--rule:#2b352f;--accent:#4cc48a;--accent-ink:#0b120e;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--up:#3987e5;--down:#e66767;--focus:#3987e5}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#101613;--surface:#171f1a;--surface-2:#1e2823;--ink:#eef2ec;--muted:#a3ada6;--rule:#2b352f;--accent:#4cc48a;--accent-ink:#0b120e;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--up:#3987e5;--down:#e66767;--focus:#3987e5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.45}
+main{max-width:1240px;margin:0 auto;padding:0 20px 48px}
+.mast{display:flex;flex-wrap:wrap;gap:12px 32px;align-items:flex-end;justify-content:space-between;padding:20px 0 14px;border-bottom:3px solid var(--accent)}
+h1{font-family:var(--display);font-weight:700;font-size:40px;line-height:.95;margin:0;text-transform:uppercase}
+h1 small{display:block;font-size:13px;font-weight:600;letter-spacing:.14em;color:var(--accent)}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+.field{display:flex;flex-direction:column;gap:2px}
+.field label{font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.1em;font-size:11px;color:var(--muted)}
+input,select{font:inherit;font-family:var(--mono);font-size:13px;color:var(--ink);background:var(--surface);border:1px solid var(--rule);padding:6px 8px;border-radius:3px;min-width:0}
+input[type=text]{width:120px}input[type=number]{width:64px}
+button{font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.08em;font-size:14px;padding:8px 14px;border-radius:3px;border:1px solid var(--accent);background:var(--surface);color:var(--accent);cursor:pointer}
+button.primary{background:var(--accent);color:var(--accent-ink)}
+button:disabled{opacity:.5;cursor:progress}
+button:focus-visible,input:focus-visible,select:focus-visible,.row:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.status{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:2px;background:var(--rule);border:1px solid var(--rule);margin:16px 0}
+.status div{background:var(--surface);padding:10px 14px}
+.status .v{font-family:var(--display);font-weight:700;font-size:26px;line-height:1;font-variant-numeric:tabular-nums}
+.status .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:4px}
+.progress{height:4px;background:var(--rule);margin:-10px 0 14px;overflow:hidden}
+.progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .1s linear}
+.grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--rule)}
+.panel header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--rule)}
+.panel h2{font-family:var(--display);font-weight:700;font-size:20px;margin:0;text-transform:uppercase;letter-spacing:.03em}
+.tabs{display:flex;gap:4px}
+.tabs button{font-size:12px;padding:4px 10px;border-color:var(--rule);color:var(--muted);background:transparent}
+.tabs button[aria-selected=true]{border-color:var(--accent);color:var(--accent)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th{font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:11px;color:var(--muted);text-align:left;padding:6px 10px;border-bottom:2px solid var(--rule)}
+td{padding:5px 10px;border-bottom:1px solid var(--rule);white-space:nowrap}
+.num{text-align:right;font-family:var(--mono)}
+td.pts{font-weight:600}
+tr.zone-up td:first-child{box-shadow:inset 3px 0 var(--accent)}
+tr.zone-down td:first-child{box-shadow:inset 3px 0 var(--critical)}
+.pill{display:inline-block;font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.08em;font-size:10px;padding:1px 6px;margin-left:6px;border-radius:2px;vertical-align:1px}
+.pill.champ{background:var(--accent);color:var(--accent-ink)}
+.results{list-style:none;margin:0;padding:0;max-height:420px;overflow-y:auto}
+.row{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;padding:7px 14px;border-bottom:1px solid var(--rule);cursor:pointer;background:transparent;border-left:3px solid transparent}
+.row:hover{background:var(--surface-2)}
+.row[aria-selected=true]{border-left-color:var(--accent);background:var(--surface-2)}
+.row .h{text-align:right}.row .s{font-family:var(--display);font-weight:700;font-size:18px;font-variant-numeric:tabular-nums;min-width:52px;text-align:center}
+.row .meta{grid-column:1/-1;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.day-head{font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.1em;font-size:11px;color:var(--muted);padding:8px 14px 2px;background:var(--surface)}
+.detail{padding:12px 14px}
+.detail .score{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font-family:var(--display);font-weight:600;font-size:20px;text-transform:uppercase;margin:0 0 4px}
+.detail .score span:last-child{text-align:right}
+.detail .score b{font-size:32px;color:var(--accent);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.side{font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--muted);margin:8px 0 0}
+svg.chart{width:100%;height:auto;display:block}
+.chart .tick{font-family:var(--mono);font-size:11px;fill:var(--muted)}
+.chart .label{font-family:var(--body);font-size:11px;font-weight:500;fill:var(--ink)}
+.goals{list-style:none;padding:0;margin:8px 0 0;font-size:13px}
+.goals li{padding:2px 0;border-top:1px dotted var(--rule)}
+.goals .min{font-family:var(--mono);display:inline-block;width:32px;color:var(--muted)}
+.goals .who{font-family:var(--display);font-weight:600;display:inline-block;width:40px;letter-spacing:.06em}
+.stack{display:grid;gap:20px}
+.news{list-style:none;margin:0;padding:0;font-size:13px;max-height:260px;overflow-y:auto}
+.news li{padding:6px 14px;border-bottom:1px solid var(--rule)}
+.news .d{font-family:var(--mono);font-size:11px;color:var(--muted);margin-right:8px}
+.seasons{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:2px;background:var(--rule);border:1px solid var(--rule)}
+.seasons div{background:var(--surface);padding:10px 12px;font-size:12px}
+.seasons b{font-family:var(--display);font-size:16px;text-transform:uppercase;letter-spacing:.04em;display:block}
+.seasons .m{font-family:var(--mono);color:var(--muted);display:block;margin-top:3px}
+.empty{padding:20px 14px;color:var(--muted)}
+.seasons .empty{grid-column:1/-1}
+footer{padding:20px 0;font-family:var(--mono);font-size:11px;color:var(--muted)}
+</style>
+<main>
+<header class="mast">
+  <h1><small>Sports simulation engine</small>Matchday Explorer</h1>
+  <form class="controls" id="controls">
+    <div class="field"><label for="seed">Seed</label><input id="seed" type="text" value="alpha" autocomplete="off"></div>
+    <div class="field"><label for="leagues">Divisions</label><input id="leagues" type="number" min="1" max="4" value="2"></div>
+    <div class="field"><label for="clubs">Clubs each</label><input id="clubs" type="number" min="4" max="20" step="2" value="12"></div>
+    <button type="submit">New world</button>
+    <button type="button" id="week" class="primary">Play week</button>
+    <button type="button" id="season" class="primary">Play to season end</button>
+  </form>
+</header>
+
+<div class="status">
+  <div><div class="v" id="st-season">–</div><div class="k">Season</div></div>
+  <div><div class="v" id="st-week">–</div><div class="k">Week · day</div></div>
+  <div><div class="v" id="st-next">–</div><div class="k">Next fixtures</div></div>
+  <div><div class="v" id="st-events">–</div><div class="k">Events this season</div></div>
+  <div><div class="v" id="st-hash">–</div><div class="k">World hash</div></div>
+</div>
+<div class="progress" hidden id="progress"><i></i></div>
+
+<div class="grid">
+  <div class="stack">
+    <section class="panel">
+      <header><h2 id="table-title">Division 1</h2><div class="tabs" id="tabs" role="tablist"></div></header>
+      <div class="scroll" id="table"></div>
+    </section>
+    <section class="panel">
+      <header><h2>Completed seasons</h2></header>
+      <div id="seasons" class="seasons"></div>
+    </section>
+    <section class="panel">
+      <header><h2>Leading scorers</h2></header>
+      <div class="scroll" id="scorers"></div>
+    </section>
+  </div>
+  <div class="stack">
+    <section class="panel">
+      <header><h2>Results</h2><span class="muted" id="results-note">Select a match to see why it went that way</span></header>
+      <ul class="results" id="results"></ul>
+    </section>
+    <section class="panel">
+      <header><h2>Match report</h2></header>
+      <div class="detail" id="detail"><p class="empty">Play a week to see the first match report.</p></div>
+    </section>
+    <section class="panel">
+      <header><h2>Club news</h2></header>
+      <ul class="news" id="news"></ul>
+    </section>
+  </div>
+</div>
+<footer>Same seed and settings always produce the same world and the same results. The engine runs entirely in this page.</footer>
+</main>
+<!--ENGINE-->
+<script>
+(() => {
+  const E = window.SimEngine;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const money = (k) => (Math.abs(k) >= 1000 ? `${(k / 1000).toFixed(1)}m` : `${Math.round(k)}k`);
+  let game, activeTier = 1, selectedFixture = null, resultDays = [], news = [], running = false;
+
+  function newWorld() {
+    const seed = $('seed').value.trim() || 'alpha';
+    const leagues = Math.max(1, Math.min(4, Number($('leagues').value) || 2));
+    const clubsPerLeague = Math.max(4, Math.min(20, Number($('clubs').value) || 12));
+    game = E.createGame({ seed, leagues, clubsPerLeague });
+    activeTier = 1; selectedFixture = null; resultDays = []; news = [];
+    // Open on the first matchday so the page shows real tables at rest.
+    play(35, false);
+  }
+
+  function leagues() {
+    const w = game.world;
+    return Object.values(w.competitions).filter((c) => c.kind === 'league' && c.season === w.season).sort((a, b) => a.tier - b.tier);
+  }
+
+  function collect(events) {
+    const w = game.world;
+    const byDay = new Map();
+    for (const e of events) {
+      if (e.type === 'MATCH_PLAYED') {
+        if (!byDay.has(e.day)) byDay.set(e.day, []);
+        byDay.get(e.day).push(e.payload.fixtureId);
+      } else if (e.type === 'MANAGER_SACKED') {
+        news.push({ day: e.day, text: `${w.clubs[e.payload.clubId].name} sack ${w.managers[e.payload.managerId].name}: ${e.payload.reason}` });
+      } else if (e.type === 'MANAGER_APPOINTED') {
+        news.push({ day: e.day, text: `${w.clubs[e.payload.clubId].name} appoint ${w.managers[e.payload.managerId].name} until season ${e.payload.contractEndSeason}` });
+      } else if (e.type === 'PLAYER_TRANSFERRED' && e.payload.record.fee > 0) {
+        const r = e.payload.record;
+        news.push({ day: e.day, text: `${w.players[r.playerId].name} joins ${w.clubs[r.toClubId].name} from ${w.clubs[r.fromClubId].name} for ${money(r.fee)}` });
+      } else if (e.type === 'CUP_ROUND_ADVANCED' && e.payload.winnerId) {
+        news.push({ day: e.day, text: `${w.clubs[e.payload.winnerId].name} win the ${w.competitions[e.payload.competitionId].name}` });
+      } else if (e.type === 'SEASON_ENDED') {
+        const s = e.payload.summary;
+        news.push({ day: e.day, text: `Season ${s.season} ends. Promoted: ${s.promoted.map((id) => w.clubs[id].name).join(', ') || 'none'}. Relegated: ${s.relegated.map((id) => w.clubs[id].name).join(', ') || 'none'}.` });
+      } else if (e.type === 'PLAYER_INJURED' && e.payload.days >= 30) {
+        const p = w.players[e.payload.playerId];
+        news.push({ day: e.day, text: `${p.name} (${w.clubs[p.clubId]?.short ?? '—'}) out for ${e.payload.days} days` });
+      }
+    }
+    for (const [day, ids] of byDay) resultDays.push({ day, ids });
+    if (resultDays.length > 6) resultDays = resultDays.slice(-6);
+    // Keep the report on the latest matchday's first result unless the viewer picked one.
+    const latest = resultDays[resultDays.length - 1];
+    if (latest && (selectedFixture === null || !resultDays.some((d) => d.ids.includes(selectedFixture)))) selectedFixture = latest.ids[0];
+    if (news.length > 40) news = news.slice(-40);
+  }
+
+  function play(days, animate) {
+    if (running) return;
+    running = true;
+    setButtons(false);
+    const bar = $('progress'); bar.hidden = !animate; bar.firstElementChild.style.width = '0%';
+    let done = 0;
+    const chunk = () => {
+      const n = Math.min(7, days - done);
+      collect(E.step(game, n));
+      done += n;
+      bar.firstElementChild.style.width = `${(100 * done) / days}%`;
+      if (done < days) { animate ? setTimeout(chunk, 0) : chunk(); }
+      else { running = false; bar.hidden = true; setButtons(true); render(); }
+    };
+    chunk();
+  }
+
+  function setButtons(on) { for (const id of ['week', 'season']) $(id).disabled = !on; $('controls').querySelector('[type=submit]').disabled = !on; }
+
+  function render() {
+    const w = game.world;
+    const sd = E.seasonDay(w);
+    $('st-season').textContent = w.season;
+    $('st-week').textContent = `${Math.floor(sd / 7) + 1} · ${sd}`;
+    let next = null;
+    for (let d = w.day + 1; d <= w.day + 60 && next === null; d++) if (E.fixturesOnDay(w, d).length) next = d;
+    $('st-next').textContent = next === null ? 'season over' : `${E.fixturesOnDay(w, next).length} on day ${next - w.seasonStartDay}`;
+    $('st-events').textContent = game.ctx.log.length.toLocaleString('en-GB');
+    $('st-hash').textContent = E.quickHash(w);
+    renderTabs(); renderTable(); renderResults(); renderDetail(); renderNews(); renderSeasons(); renderScorers();
+  }
+
+  function renderTabs() {
+    const tabs = $('tabs'); tabs.innerHTML = '';
+    for (const l of leagues()) {
+      const b = document.createElement('button'); b.type = 'button'; b.role = 'tab'; b.textContent = `Div ${l.tier}`;
+      b.setAttribute('aria-selected', String(l.tier === activeTier));
+      b.onclick = () => { activeTier = l.tier; renderTabs(); renderTable(); };
+      tabs.appendChild(b);
+    }
+  }
+
+  function renderTable() {
+    const w = game.world;
+    const comp = leagues().find((l) => l.tier === activeTier) ?? leagues()[0];
+    if (!comp) { $('table').innerHTML = '<p class="empty">No league running.</p>'; return; }
+    $('table-title').textContent = `${comp.name} · season ${comp.season}`;
+    const rows = E.computeTable(w, comp).map((r) => {
+      const c = w.clubs[r.clubId];
+      const n = comp.clubIds.length;
+      const cls = comp.promote > 0 && r.position <= comp.promote ? 'zone-up' : comp.relegate > 0 && r.position > n - comp.relegate ? 'zone-down' : '';
+      const champ = comp.complete && r.position === 1 ? '<span class="pill champ">champions</span>' : '';
+      const form = c.form.map((p) => (p === 3 ? 'W' : p === 1 ? 'D' : 'L')).join('');
+      return `<tr class="${cls}"><td class="num">${r.position}</td><td>${esc(c.name)}${champ}</td><td class="num">${r.played}</td><td class="num">${r.won}</td><td class="num">${r.drawn}</td><td class="num">${r.lost}</td><td class="num">${r.gf}</td><td class="num">${r.ga}</td><td class="num">${r.gd > 0 ? '+' : ''}${r.gd}</td><td class="num pts">${r.points}</td><td class="num">${form || '–'}</td><td class="num">${money(c.balance)}</td></tr>`;
+    }).join('');
+    $('table').innerHTML = `<table><thead><tr><th class="num">#</th><th>Club</th><th class="num">P</th><th class="num">W</th><th class="num">D</th><th class="num">L</th><th class="num">GF</th><th class="num">GA</th><th class="num">GD</th><th class="num">Pts</th><th class="num">Form</th><th class="num">Bank</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  function renderResults() {
+    const w = game.world;
+    const ul = $('results'); ul.innerHTML = '';
+    if (resultDays.length === 0) { ul.innerHTML = '<li class="empty">No matches played yet.</li>'; return; }
+    for (const { day, ids } of [...resultDays].reverse()) {
+      const head = document.createElement('li'); head.className = 'day-head'; head.textContent = `Day ${day - w.seasonStartDay} · season ${w.fixtures[ids[0]].season}`;
+      ul.appendChild(head);
+      for (const id of ids) {
+        const f = w.fixtures[id];
+        const li = document.createElement('li'); li.className = 'row'; li.tabIndex = 0; li.setAttribute('aria-selected', String(id === selectedFixture));
+        const comp = w.competitions[f.competitionId];
+        const pens = f.report?.penalties ? ` · pens ${f.report.penalties.home}–${f.report.penalties.away}` : '';
+        li.innerHTML = `<span class="h">${esc(w.clubs[f.homeClubId].name)}</span><span class="s">${f.homeGoals}–${f.awayGoals}</span><span>${esc(w.clubs[f.awayClubId].name)}</span><span class="meta">${esc(comp.name)}${comp.kind === 'cup' ? ` round ${f.round}` : ''}${pens} · xG ${f.report.lambda.home.toFixed(2)} v ${f.report.lambda.away.toFixed(2)}</span>`;
+        const pick = () => { selectedFixture = id; renderResults(); renderDetail(); };
+        li.onclick = pick; li.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } };
+        ul.appendChild(li);
+      }
+    }
+  }
+
+  function factorBars(factors) {
+    const W = 420, rowH = 22, mid = 220, half = 120, padT = 4;
+    const rows = factors.filter((f) => f.name !== 'base');
+    const H = padT + rows.length * rowH + 4;
+    const scale = (m) => Math.max(-half, Math.min(half, Math.log(m) * 180));
+    let out = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Goal factors"><line x1="${mid}" x2="${mid}" y1="0" y2="${H}" stroke="var(--rule)"/>`;
+    rows.forEach((f, i) => {
+      const y = padT + i * rowH, dx = scale(f.multiplier);
+      out += `<text class="tick" x="${mid - half - 8}" y="${y + 15}" text-anchor="end">${esc(f.name)}</text>`;
+      out += `<rect x="${(dx >= 0 ? mid : mid + dx).toFixed(1)}" y="${y + 5}" width="${Math.abs(dx).toFixed(1)}" height="${rowH - 10}" rx="2" fill="${f.multiplier >= 1 ? 'var(--up)' : 'var(--down)'}"><title>${esc(f.note)}</title></rect>`;
+      out += `<text class="label" x="${mid + half + 8}" y="${y + 15}">x${f.multiplier.toFixed(2)}</text>`;
+    });
+    return out + '</svg>';
+  }
+
+  function renderDetail() {
+    const w = game.world;
+    const box = $('detail');
+    const f = selectedFixture ? w.fixtures[selectedFixture] : null;
+    if (!f || !f.report) { box.innerHTML = '<p class="empty">Play a week to see the first match report.</p>'; return; }
+    const r = f.report, h = w.clubs[f.homeClubId], a = w.clubs[f.awayClubId];
+    const goals = r.goals.map((g) => `<li><span class="min">${g.minute}'</span><span class="who">${esc(w.clubs[g.clubId].short)}</span>${esc(w.players[g.scorerId]?.name ?? g.scorerId)}${g.assistId ? ` <span class="muted">(${esc(w.players[g.assistId]?.name ?? '')})</span>` : ''}</li>`).join('');
+    box.innerHTML = `
+      <p class="score"><span>${esc(h.name)}</span><b>${f.homeGoals}–${f.awayGoals}</b><span>${esc(a.name)}</span></p>
+      <p class="muted">${esc(w.competitions[f.competitionId].name)} · day ${f.day - w.seasonStartDay} · ${esc(r.homeFormation)} v ${esc(r.awayFormation)} · attendance ${r.attendance.toLocaleString('en-GB')} · expected goals ${r.lambda.home.toFixed(2)} v ${r.lambda.away.toFixed(2)}${r.penalties ? ` · penalties ${r.penalties.home}–${r.penalties.away}` : ''}</p>
+      <p class="side">${esc(h.short)} factors (base ${r.factors.home[0].multiplier.toFixed(2)})</p>${factorBars(r.factors.home)}
+      <p class="side">${esc(a.short)} factors (base ${r.factors.away[0].multiplier.toFixed(2)})</p>${factorBars(r.factors.away)}
+      ${goals ? `<ol class="goals">${goals}</ol>` : '<p class="muted">Goalless.</p>'}`;
+  }
+
+  function renderNews() {
+    const w = game.world;
+    const ul = $('news'); ul.innerHTML = news.length ? '' : '<li class="empty">Nothing yet. Transfers, sackings and cup wins land here.</li>';
+    for (const n of [...news].reverse()) {
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="d">S${w.season} d${n.day - w.seasonStartDay >= 0 ? n.day - w.seasonStartDay : n.day}</span>${esc(n.text)}`;
+      ul.appendChild(li);
+    }
+  }
+
+  function renderSeasons() {
+    const w = game.world;
+    const box = $('seasons');
+    if (game.seasons.length === 0) { box.innerHTML = '<div class="empty">No season finished yet.</div>'; return; }
+    box.innerHTML = game.seasons.map((m) => {
+      const hist = w.history.find((h) => h.season === m.season);
+      const champs = hist ? Object.entries(hist.champions).map(([cid, club]) => `${w.competitions[cid]?.name ?? cid}: ${w.clubs[club].name}`).join(' · ') : '';
+      return `<div><b>Season ${m.season}</b>${esc(champs)}<span class="m">${m.goalsPerMatch} goals/match · H/D/A ${m.homeWinPct}/${m.drawPct}/${m.awayWinPct}</span><span class="m">${(m.transfers.transfer ?? 0) + (m.transfers.free ?? 0)} signings · ${m.sackings} sackings · ${m.injuries} injuries</span></div>`;
+    }).join('');
+  }
+
+  function renderScorers() {
+    const w = game.world;
+    const rows = Object.values(w.players).filter((p) => !p.retired && p.stats.goals > 0)
+      .sort((a, b) => b.stats.goals - a.stats.goals || b.stats.assists - a.stats.assists || a.id.localeCompare(b.id)).slice(0, 8)
+      .map((p) => `<tr><td>${esc(p.name)}</td><td>${esc(p.clubId ? w.clubs[p.clubId].short : 'FA')}</td><td>${p.position}</td><td class="num">${p.age}</td><td class="num">${Math.round(E.overall(p))}</td><td class="num">${p.stats.apps}</td><td class="num">${p.stats.goals}</td><td class="num">${p.stats.assists}</td><td class="num">${E.averageRating(p).toFixed(2)}</td></tr>`).join('');
+    $('scorers').innerHTML = rows ? `<table><thead><tr><th>Player</th><th>Club</th><th>Pos</th><th class="num">Age</th><th class="num">Ovr</th><th class="num">Apps</th><th class="num">Goals</th><th class="num">Ast</th><th class="num">Rating</th></tr></thead><tbody>${rows}</tbody></table>` : '<p class="empty">No goals scored yet this season.</p>';
+  }
+
+  $('controls').addEventListener('submit', (e) => { e.preventDefault(); newWorld(); render(); });
+  $('week').addEventListener('click', () => play(7, true));
+  $('season').addEventListener('click', () => { const left = E.daysLeftInSeason(game.world); play(left === 0 ? game.world.seasonLength : left, true); });
+  newWorld();
+  render();
+})();
+</script>

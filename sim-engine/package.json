@@ -1,0 +1,22 @@
+{
+  "name": "sports-simulation-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic, event-sourced football club management simulation engine",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "sim": "npm run build --silent && node dist/sim/cli.js",
+    "test": "npm run build --silent && node --test \"dist/test/*.test.js\"",
+    "build:web": "node scripts/build-web.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.25.12",
+    "typescript": "^5.9.0"
+  }
+}
