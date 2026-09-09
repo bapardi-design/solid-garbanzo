@@ -15,6 +15,7 @@ state hash.
 npm install
 npm run sim -- run --seasons 3 --seed alpha          # simulate and print metrics + tables
 npm run sim -- run --seasons 1 --explain 3            # also print goal-factor breakdowns
+npm run sim -- run --seasons 8 --report out/annual.html   # self-contained HTML report with charts
 npm run sim -- verify --seasons 2 --seed alpha        # run twice, compare season hashes
 npm run sim -- run --seasons 2 --out out/             # write a JSON snapshot per season
 npm run sim -- resume --from out/world_s2.json --seasons 1   # continue from a snapshot
@@ -51,6 +52,7 @@ Flags: `--seasons N`, `--seed S`, `--leagues L`, `--clubs C` (per league),
 | `src/sim/snapshot.ts` | Stable JSON serialisation and SHA-256 hashing |
 | `src/sim/metrics.ts` | Per-season calibration metrics and event type counts |
 | `src/sim/invariants.ts` | Structural checks run at every season end |
+| `src/sim/report.ts` | Self-contained HTML report: charts, tables, honours, explained matches |
 | `src/sim/cli.ts` | Command line entry point |
 
 ## Calendar
@@ -69,6 +71,14 @@ ability and recent form. Goals are Poisson-distributed; scorers are weighted by
 position and rating. The factors are stored on the fixture report so
 `--explain` can show why a result happened. Calibration target is about 2.7
 goals per match with roughly 45/25/30 home/draw/away.
+
+## Report
+
+`--report FILE` writes a single HTML file with no external scripts: goals and
+outcome balance per season, club balances by division, transfer activity, final
+league tables, honours, leading scorers, three explained matches with their
+goal-factor bars, and the season's event counts. Each chart has its data table
+beside it and renders in light and dark themes.
 
 ## Determinism
 

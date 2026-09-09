@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * sim run     --seasons 2 --seed abc --leagues 2 --clubs 12 --squad 24 [--out DIR] [--explain N] [--quiet]
+ * sim run     --seasons 2 --seed abc --leagues 2 --clubs 12 --squad 24 [--out DIR] [--report FILE] [--explain N] [--quiet]
  * sim verify  same flags; runs twice and compares end-of-season hashes
  * sim explain --seasons 1 ... --explain 5 ; prints goal factor breakdowns
  * sim resume  --from out/world_s2.json --seasons 2 [--out DIR] ; continue from a snapshot
@@ -10,6 +10,9 @@ import { explainMatch } from '../matchday/match.js';
 import { computeTable } from '../matchday/table.js';
 import { runSeasons, type SeasonResult } from './runner.js';
 import { loadSnapshot } from './snapshot.js';
+import { renderReport } from './report.js';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 interface Args { command: string; flags: Record<string, string | boolean> }
 
@@ -87,6 +90,11 @@ export function main(argv: string[]): number {
       const step = Math.max(1, Math.floor(played.length / explain));
       console.log('\n--- match explanations ---');
       for (let i = 0; i < played.length && i / step < explain; i += step) console.log(explainMatch(world, played[i]) + '\n');
+    }
+    if (typeof flags.report === 'string') {
+      mkdirSync(dirname(flags.report), { recursive: true });
+      writeFileSync(flags.report, renderReport(result));
+      console.log(`report written to ${flags.report}`);
     }
     console.log(`\nran ${seasons} season(s), ${result.totalEvents} events, ${result.elapsedMs} ms, final hash ${result.seasons.at(-1)?.hash}`);
     return 0;

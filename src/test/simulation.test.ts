@@ -80,3 +80,14 @@ test('transfer market produces activity in the first season', () => {
   assert.ok((t.transfer ?? 0) + (t.free ?? 0) > 0, `no signings: ${JSON.stringify(t)}`);
   assert.ok((t.renewal ?? 0) > 0);
 });
+
+test('html report renders every section from a run', async () => {
+  const { renderReport } = await import('../sim/report.js');
+  const result = runSeasons({ config: small, seasons: 2 });
+  const html = renderReport(result);
+  for (const marker of ['Simulation Annual', 'Scoring and outcome balance', 'Average club balance', 'Transfer activity', 'Final standings', 'Champions, promotions', 'leading scorers', 'Why results happened', 'Event log', '<svg', 'champions</span>']) {
+    assert.ok(html.includes(marker), `missing ${marker}`);
+  }
+  assert.ok(!html.includes('undefined'), 'report contains undefined');
+  assert.ok(!html.includes('NaN'), 'report contains NaN');
+});
