@@ -48,6 +48,8 @@ export interface Player {
   lastStartDay: number;
   /** Day the player became a free agent; null while under contract. */
   freeSince: number | null;
+  /** Asking price when the owning club has listed the player for sale; null otherwise. */
+  listedAt: number | null;
 }
 
 export interface Contract {
@@ -222,6 +224,10 @@ export interface World {
   history: SeasonSummary[];
   counters: Record<string, number>;
   idx: Indexes;
+  /** Club controlled by a human manager, if any. */
+  humanClubId: string | null;
+  /** Set when the human manager loses the job. */
+  careerOver: { day: number; season: number; reason: string } | null;
 }
 
 export const DEFAULT_CONFIG: WorldConfig = {
@@ -252,6 +258,8 @@ export function createEmptyWorld(config: WorldConfig): World {
     history: [],
     counters: {},
     idx: { squadByClub: {}, contractByPlayer: {}, fixturesByDay: {}, fixturesByCompetition: {} },
+    humanClubId: null,
+    careerOver: null,
   };
 }
 

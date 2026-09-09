@@ -48,6 +48,11 @@ export interface EventPayloads {
   TACTIC_CHANGED: { clubId: string; tactic: Tactic };
   SEASON_ENDED: { season: number; summary: SeasonSummary; leagueMoves: Record<string, string> };
   PLAYERS_AGED: { season: number };
+  CLUB_TAKEN_OVER: { clubId: string; manager: Manager };
+  PLAYER_LISTED: { playerId: string; askingPrice: number };
+  PLAYER_UNLISTED: { playerId: string };
+  PLAYER_RELEASED: { playerId: string; clubId: string; payoff: number };
+  CAREER_ENDED: { clubId: string; reason: string };
 }
 
 export type EventType = keyof EventPayloads;

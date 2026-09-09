@@ -14,6 +14,11 @@ import { tierFromLeagueId } from '../engines/season.js';
 import { tickDay } from '../sim/tick.js';
 import { seasonMetrics, type SeasonMetrics } from '../sim/metrics.js';
 import { checkInvariants } from '../sim/invariants.js';
+import * as actions from '../actions.js';
+import { selectXI } from '../matchday/xi.js';
+import { contractOf } from '../core/schema.js';
+import { wageDemand, playerValue, effectiveRating } from '../rating.js';
+import { inTransferWindow } from '../engines/transfers.js';
 
 export interface Game {
   ctx: Ctx;
@@ -21,6 +26,18 @@ export interface Game {
   /** Events of the season in progress; cleared when a season's metrics are taken. */
   seasonLog: Event[];
   seasons: SeasonMetrics[];
+}
+
+export interface GameSnapshot { version: 1; world: World; rng: ReturnType<Rng['state']> }
+
+export function snapshotGame(game: Game): GameSnapshot {
+  return { version: 1, world: structuredClone(game.world), rng: game.ctx.rng.state() };
+}
+
+export function resumeGame(snapshot: GameSnapshot): Game {
+  const world = structuredClone(snapshot.world);
+  const ctx = createCtx(world, new Rng(snapshot.rng));
+  return { ctx, world, seasonLog: ctx.log, seasons: [] };
 }
 
 export function createGame(config: Partial<WorldConfig> = {}): Game {
@@ -63,8 +80,16 @@ export function fixturesOnDay(world: World, day: number): Fixture[] {
 }
 
 export const api = {
-  createGame, step, daysLeftInSeason, quickHash, fixturesOnDay,
+  ...actions,
+  createGame, resumeGame, snapshotGame, step, daysLeftInSeason, quickHash, fixturesOnDay, selectXI, contractOf, wageDemand, playerValue, effectiveRating, inTransferWindow,
   computeTable, explainMatch, overall, averageRating, squad, seasonDay, leagueOf, tierFromLeagueId, checkInvariants,
   DEFAULT_CONFIG,
 };
 export default api;
+
+export type { World, WorldConfig, Player, Club, Manager, Contract, Fixture, Competition, CompetitionLeague, CompetitionCup, MatchReport, GoalFactor, GoalEvent, Tactic, Position, TransferRecord, SeasonSummary } from '../core/schema.js';
+export type { Event, EventType } from '../core/events.js';
+export type { Standing } from '../matchday/table.js';
+export type { Selection } from '../matchday/xi.js';
+export type { SeasonMetrics } from '../sim/metrics.js';
+export type { MarketEntry, BoardStatus, RenewalTerms, ActionResult } from '../actions.js';

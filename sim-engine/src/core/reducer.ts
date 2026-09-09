@@ -217,6 +217,7 @@ export function reduce(w: World, e: Event): void {
       w.idx.contractByPlayer[record.playerId] = contract.id;
       p.contractId = contract.id;
       p.loan = null;
+      p.listedAt = null;
       movePlayer(w, record.playerId, record.toClubId);
       if (record.fee > 0) {
         w.clubs[record.toClubId].balance -= record.fee;
@@ -317,6 +318,48 @@ export function reduce(w: World, e: Event): void {
         p.form = 50;
         p.morale = clamp(Math.round(50 + (p.morale - 50) * 0.5), 0, 100);
       }
+      break;
+    }
+    case 'CLUB_TAKEN_OVER': {
+      const m = structuredClone(e.payload.manager);
+      noteId(w, m.id);
+      const club = w.clubs[e.payload.clubId];
+      if (club.managerId) detachManager(w, club.managerId, club.id);
+      w.managers[m.id] = m;
+      m.clubId = club.id;
+      m.unemployedSince = null;
+      club.managerId = m.id;
+      w.humanClubId = club.id;
+      w.careerOver = null;
+      break;
+    }
+    case 'PLAYER_LISTED': {
+      w.players[e.payload.playerId].listedAt = e.payload.askingPrice;
+      break;
+    }
+    case 'PLAYER_UNLISTED': {
+      w.players[e.payload.playerId].listedAt = null;
+      break;
+    }
+    case 'PLAYER_RELEASED': {
+      const { playerId, clubId, payoff } = e.payload;
+      const cid = w.idx.contractByPlayer[playerId];
+      if (cid) { delete w.contracts[cid]; delete w.idx.contractByPlayer[playerId]; }
+      const p = w.players[playerId];
+      p.contractId = null;
+      p.loan = null;
+      p.listedAt = null;
+      movePlayer(w, playerId, null);
+      if (payoff > 0) {
+        const c = w.clubs[clubId];
+        c.balance -= payoff;
+        c.ledger.payoffs = (c.ledger.payoffs ?? 0) - payoff;
+      }
+      break;
+    }
+    case 'CAREER_ENDED': {
+      w.careerOver = { day: e.day, season: w.season, reason: e.payload.reason };
+      w.humanClubId = null;
       break;
     }
     default: {

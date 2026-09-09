@@ -105,3 +105,4 @@ Rendering needs Chromium. Either `npx playwright install chromium` or point `AUT
 ## Also in this repository
 
 - [`sim-engine/`](sim-engine/README.md): a deterministic, event-sourced football club management simulation engine with its own package, tests, and CI workflow.
+- [`manager-app/`](manager-app/README.md): Touchline, the hosted football manager game built on the engine (Next.js, Supabase, Stripe, Vercel).

@@ -70,6 +70,7 @@ export function generatePlayer(ctx: Ctx, clubId: string | null, position: Positi
     retired: false,
     lastStartDay: -1,
     freeSince: clubId ? null : world.day,
+    listedAt: null,
   };
   const ovr = overall(player);
   const growth = age < 24 ? rng.int(2, 18) * ((24 - age) / 7) : age < 27 ? rng.int(0, 4) : 0;

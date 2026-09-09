@@ -1,0 +1,29 @@
+name: Manager app CI
+
+on:
+  push:
+    branches: [main]
+    paths: ['manager-app/**', 'sim-engine/**', '.github/workflows/manager-app-ci.yml']
+  pull_request:
+    paths: ['manager-app/**', 'sim-engine/**', '.github/workflows/manager-app-ci.yml']
+
+defaults:
+  run:
+    working-directory: manager-app
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            manager-app/package-lock.json
+            sim-engine/package-lock.json
+      - run: npm run build:engine
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build

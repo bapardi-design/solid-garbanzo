@@ -41,6 +41,10 @@ export function buildMarket(ctx: Ctx): Listing[] {
   }
   for (const club of Object.values(world.clubs)) {
     const players = squad(world, club.id).filter((p) => !p.loan);
+    if (club.id === world.humanClubId) {
+      for (const p of players) if (p.listedAt !== null) listings.push({ player: p, askingPrice: p.listedAt, fromClubId: club.id });
+      continue;
+    }
     const cashStrapped = club.balance < 0;
     for (const pos of POSITIONS) {
       const byPos = ranked(players, pos);
@@ -117,6 +121,7 @@ export function runTransferDay(ctx: Ctx): void {
   const lineCache = new Map<string, Record<Position, number>>();
 
   for (const clubId of clubs) {
+    if (clubId === world.humanClubId) continue;
     const club = world.clubs[clubId];
     if (!lineCache.has(club.leagueId)) lineCache.set(club.leagueId, leagueLines(ctx, club.leagueId));
     const needs = clubNeeds(ctx, clubId, lineCache.get(club.leagueId)!);
@@ -156,6 +161,7 @@ function runLoans(ctx: Ctx, moved: Set<string>): void {
   const clubs = rng.shuffle(Object.values(world.clubs).map((c) => c.id));
   const lineCache = new Map<string, Record<Position, number>>();
   for (const ownerId of clubs) {
+    if (ownerId === world.humanClubId) continue;
     const owner = world.clubs[ownerId];
     const ownerTier = tierOfClub(world, ownerId);
     const prospects = squad(world, ownerId)
@@ -163,7 +169,7 @@ function runLoans(ctx: Ctx, moved: Set<string>): void {
       .filter((p) => ranked(squad(world, ownerId), p.position).length > MIN_PER_POSITION[p.position]);
     if (prospects.length === 0) continue;
     const prospect = rng.pick(prospects);
-    const hosts = clubs.filter((cid) => cid !== ownerId && tierOfClub(world, cid) > ownerTier && squad(world, cid).length < MAX_SQUAD);
+    const hosts = clubs.filter((cid) => cid !== ownerId && cid !== world.humanClubId && tierOfClub(world, cid) > ownerTier && squad(world, cid).length < MAX_SQUAD);
     const willing = hosts.filter((cid) => {
       const club = world.clubs[cid];
       if (!lineCache.has(club.leagueId)) lineCache.set(club.leagueId, leagueLines(ctx, club.leagueId));
@@ -183,6 +189,7 @@ function runLoans(ctx: Ctx, moved: Set<string>): void {
 export function renewContracts(ctx: Ctx, finalCall: boolean): void {
   const { world, rng } = ctx;
   for (const club of Object.values(world.clubs)) {
+    if (club.id === world.humanClubId && !finalCall) continue;
     const players = squad(world, club.id).filter((p) => !p.loan);
     const wageRoom = club.wageBudget - weeklyWageBill(world, club.id);
     let roomLeft = wageRoom;

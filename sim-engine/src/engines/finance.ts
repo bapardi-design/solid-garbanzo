@@ -65,7 +65,8 @@ export function setBudgets(ctx: Ctx): void {
       const club = world.clubs[clubId];
       const income = projectedSeasonIncome(ctx, clubId);
       // Rich clubs may run wages above income; poor clubs are held below it.
-      const wageBudget = Math.round(Math.max(income * 1.1, income * 0.8 + club.balance * 0.25) / 52);
+      // Never below what the club already pays: existing contracts are commitments.
+      const wageBudget = Math.round(Math.max(income * 1.1, income * 0.8 + club.balance * 0.25, weeklyWageBill(world, clubId) * 52 * 1.05) / 52);
       const transferBudget = Math.round(Math.max(0, club.balance * 0.45 + (income - weeklyWageBill(world, clubId) * 52) * 0.25));
       budgets[clubId] = { wageBudget, transferBudget, boardTarget: i + 1 };
     });
