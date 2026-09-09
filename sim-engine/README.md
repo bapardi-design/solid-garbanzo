@@ -16,6 +16,7 @@ npm install
 npm run sim -- run --seasons 3 --seed alpha          # simulate and print metrics + tables
 npm run sim -- run --seasons 1 --explain 3            # also print goal-factor breakdowns
 npm run sim -- run --seasons 8 --report out/annual.html   # self-contained HTML report with charts
+npm run build:web                                     # dist/web/explorer.html: interactive in-browser explorer
 npm run sim -- verify --seasons 2 --seed alpha        # run twice, compare season hashes
 npm run sim -- run --seasons 2 --out out/             # write a JSON snapshot per season
 npm run sim -- resume --from out/world_s2.json --seasons 1   # continue from a snapshot
@@ -54,6 +55,7 @@ Flags: `--seasons N`, `--seed S`, `--leagues L`, `--clubs C` (per league),
 | `src/sim/invariants.ts` | Structural checks run at every season end |
 | `src/sim/report.ts` | Self-contained HTML report: charts, tables, honours, explained matches |
 | `src/sim/cli.ts` | Command line entry point |
+| `src/browser/engine.ts` | Browser entry bundled by `scripts/build-web.mjs` into `web/explorer.html` |
 
 ## Calendar
 
@@ -79,6 +81,17 @@ outcome balance per season, club balances by division, transfer activity, final
 league tables, honours, leading scorers, three explained matches with their
 goal-factor bars, and the season's event counts. Each chart has its data table
 beside it and renders in light and dark themes.
+
+## Explorer
+
+`npm run build:web` bundles the engine with esbuild and inlines it into
+`web/explorer.html`, producing a single-file page at `dist/web/explorer.html`.
+Pick a seed, number of divisions and clubs, then play week by week or to the
+end of the season: live league tables with promotion and relegation zones,
+form and bank balance, a results feed, a match report with goal-factor bars for
+any result, club news (transfers, sackings, cup wins, long injuries), completed
+season summaries, and leading scorers. The same seed always gives the same
+world.
 
 ## Determinism
 
