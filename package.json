@@ -1,0 +1,31 @@
+{
+  "name": "signature-social-autopilot",
+  "version": "0.1.0",
+  "description": "Brand-in, posts-out: AI social media content pipeline with a human review gate and automated publishing.",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=20" },
+  "bin": { "autopilot": "./bin/autopilot.js" },
+  "scripts": {
+    "autopilot": "tsx src/cli.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src tests --ext .ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.124.0",
+    "@notionhq/client": "^5.0.0",
+    "commander": "^15.0.0",
+    "dotenv": "^17.0.0",
+    "playwright": "^1.63.0",
+    "yaml": "^2.8.0",
+    "zod": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.23.0",
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.0"
+  }
+}

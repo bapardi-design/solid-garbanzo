@@ -1,0 +1,58 @@
+# Writes copy + renders designs for every post in the content plan that has
+# not been generated yet, and puts them on the review board.
+# Runs every Monday morning and on demand.
+name: Generate posts
+on:
+  schedule:
+    - cron: "0 6 * * 1"        # Mondays 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      week:
+        description: "Only this week of the content plan (blank = everything not generated yet)"
+        required: false
+      ids:
+        description: "Only these post ids, space-separated"
+        required: false
+      force:
+        description: "Regenerate posts that already exist (new version)"
+        type: boolean
+        default: false
+
+concurrency: { group: autopilot-state, cancel-in-progress: false }
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      AUTOPILOT_MODEL: ${{ vars.AUTOPILOT_MODEL }}
+      AUTOPILOT_TZ: ${{ vars.AUTOPILOT_TZ }}
+      BOARD: ${{ vars.BOARD }}
+      STORAGE: ${{ vars.STORAGE }}
+      PUBLISHER: ${{ vars.PUBLISHER }}
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      NOTION_DATA_SOURCE_ID: ${{ secrets.NOTION_DATA_SOURCE_ID }}
+      CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+      CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+      CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Generate
+        run: |
+          ARGS=""
+          [ -n "${{ inputs.week }}" ] && ARGS="$ARGS --week ${{ inputs.week }}"
+          [ -n "${{ inputs.ids }}" ] && ARGS="$ARGS --id ${{ inputs.ids }}"
+          [ "${{ inputs.force }}" = "true" ] && ARGS="$ARGS --force"
+          npm run autopilot -- generate $ARGS
+      - name: Commit renders, post records and board cards
+        run: |
+          git config user.name "autopilot"
+          git config user.email "autopilot@users.noreply.github.com"
+          git add out board
+          git diff --cached --quiet || git commit -m "autopilot: generate posts"
+          git push

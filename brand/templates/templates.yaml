@@ -1,0 +1,29 @@
+# Design templates. Each template is an HTML file rendered headlessly to PNG.
+# Variables available inside a template:
+#   {{brand.*}}            anything from brand.yaml (e.g. {{brand.visual.colors.accent}})
+#   {{design.headline}}    {{design.subheadline}}  {{design.cta}}   (written by the AI)
+#   {{slide.title}} {{slide.body}} {{slide.index}} {{slide.total}}  (carousel slides only)
+#   {{post.id}} {{post.pillar}}
+# Use {{{var}}} (triple braces) to insert raw HTML; double braces are escaped.
+
+templates:
+  tip-carousel:
+    kind: carousel            # cover + one image per slide (+ closing CTA slide)
+    cover: carousel-cover.html
+    slide: carousel-slide.html
+    closing: carousel-closing.html
+    width: 1080
+    height: 1350
+    slides: { min: 3, max: 6 }
+
+  statement:
+    kind: single
+    file: statement.html
+    width: 1080
+    height: 1350
+
+  story:
+    kind: single
+    file: story.html
+    width: 1080
+    height: 1920

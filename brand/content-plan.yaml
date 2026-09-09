@@ -1,0 +1,180 @@
+# ============================================================
+# CONTENT PLAN — what gets generated, when, and where.
+# One entry per post. The AI writes the copy; you decide the topic.
+#
+# Fields:
+#   id        unique, stable (used for files and board cards)
+#   date      YYYY-MM-DD   time  HH:MM (in AUTOPILOT_TZ)
+#   channels  which channels to publish to
+#   pillar    key from brand.yaml pillars
+#   format    carousel | single | story
+#   template  name from brand/templates/templates.yaml
+#   topic     what the post is about (one or two sentences is enough)
+#   angle     optional: hook style / point of view
+#   cta       freebie | core | engagement
+#   notes     optional: facts, numbers, quotes the AI may use verbatim
+#   approved_story  true if a client story may be told with real details
+# ============================================================
+
+timezone: Europe/Berlin
+default_time: "09:00"
+
+weeks:
+  - week: 1
+    theme: "Why ads alone won't get you there"
+    posts:
+      - id: w1-p1
+        date: 2026-09-14
+        channels: [instagram, tiktok, linkedin]
+        pillar: mindset
+        format: carousel
+        template: tip-carousel
+        topic: "The hidden cost of relying only on paid ads: rising CPMs, zero ownership, revenue that stops the day the budget stops."
+        angle: "Reality check, not doom. End with the alternative."
+        cta: freebie
+
+      - id: w1-p2
+        date: 2026-09-15
+        channels: [instagram, linkedin]
+        pillar: education
+        format: single
+        template: statement
+        topic: "Definition post: what partner & creator marketing actually is — real people recommending your product to an audience that trusts them, paid on results."
+        cta: freebie
+
+      - id: w1-p3
+        date: 2026-09-17
+        channels: [instagram, tiktok]
+        pillar: proof
+        format: carousel
+        template: tip-carousel
+        topic: "Mini case study: a skincare founder (name changed) replaced 60% of her ad budget with 5 micro-creator partners and kept revenue flat while margin went up."
+        notes: "Numbers are illustrative — phrase as 'one of our founders'."
+        cta: core
+
+      - id: w1-p4
+        date: 2026-09-18
+        channels: [instagram]
+        pillar: behind
+        format: story
+        template: story
+        topic: "Behind the scenes: how Mediha finds the first 10 potential partners for a client in one afternoon."
+        cta: engagement
+
+  - week: 2
+    theme: "How the channel actually works"
+    posts:
+      - id: w2-p1
+        date: 2026-09-21
+        channels: [instagram, tiktok, linkedin]
+        pillar: education
+        format: carousel
+        template: tip-carousel
+        topic: "The 5 steps of a partner marketing channel: define the offer, find partners, set up tracking, onboard, keep it running in the background."
+        cta: freebie
+
+      - id: w2-p2
+        date: 2026-09-22
+        channels: [instagram, linkedin]
+        pillar: mindset
+        format: single
+        template: statement
+        topic: "Myth: 'Collaborations feel salesy.' Truth: a recommendation from someone the audience trusts is the least salesy marketing there is."
+        cta: engagement
+
+      - id: w2-p3
+        date: 2026-09-24
+        channels: [instagram, tiktok, linkedin]
+        pillar: education
+        format: carousel
+        template: tip-carousel
+        topic: "What to pay partners: commission vs. flat fee vs. product — and when each makes sense for a small brand."
+        cta: freebie
+
+      - id: w2-p4
+        date: 2026-09-25
+        channels: [instagram]
+        pillar: behind
+        format: story
+        template: story
+        topic: "Mediha's Friday ritual: 20 minutes checking partner results with a coffee. This is what 'runs in the background' looks like."
+        cta: engagement
+
+  - week: 3
+    theme: "Finding the right partners"
+    posts:
+      - id: w3-p1
+        date: 2026-09-28
+        channels: [instagram, tiktok, linkedin]
+        pillar: education
+        format: carousel
+        template: tip-carousel
+        topic: "Where to find partners when you have no network: complementary brands, micro-creators, communities, your own best customers."
+        cta: freebie
+
+      - id: w3-p2
+        date: 2026-09-29
+        channels: [instagram, linkedin]
+        pillar: proof
+        format: single
+        template: statement
+        topic: "One sentence a founder said after her first partner month: 'It's the first channel that didn't feel like shouting.'"
+        cta: core
+
+      - id: w3-p3
+        date: 2026-10-01
+        channels: [instagram, tiktok]
+        pillar: mindset
+        format: carousel
+        template: tip-carousel
+        topic: "Why most female founders never try this channel: no one showed them, it feels like 'asking for favours', and ads are the default advice."
+        cta: freebie
+
+      - id: w3-p4
+        date: 2026-10-02
+        channels: [instagram]
+        pillar: behind
+        format: story
+        template: story
+        topic: "The exact message template Mediha uses to reach out to a potential partner (short, generous, specific)."
+        cta: engagement
+
+  - week: 4
+    theme: "Making it run in the background"
+    posts:
+      - id: w4-p1
+        date: 2026-10-05
+        channels: [instagram, tiktok, linkedin]
+        pillar: education
+        format: carousel
+        template: tip-carousel
+        topic: "The simplest tracking setup for partner sales: unique codes or links, one spreadsheet, a monthly payout day."
+        cta: freebie
+
+      - id: w4-p2
+        date: 2026-10-06
+        channels: [instagram, linkedin]
+        pillar: mindset
+        format: single
+        template: statement
+        topic: "You don't need 100 partners. You need 5 who genuinely use your product."
+        cta: engagement
+
+      - id: w4-p3
+        date: 2026-10-08
+        channels: [instagram, tiktok, linkedin]
+        pillar: proof
+        format: carousel
+        template: tip-carousel
+        topic: "Before/after: a coaching business (name changed) went from 100% ad-dependent to 40% partner-driven revenue in 4 months."
+        notes: "Illustrative. Emphasise the process, not the exact numbers."
+        cta: core
+
+      - id: w4-p4
+        date: 2026-10-09
+        channels: [instagram]
+        pillar: behind
+        format: story
+        template: story
+        topic: "Q&A invitation: what's the one thing stopping you from starting with partners? Mediha answers in next week's stories."
+        cta: engagement
