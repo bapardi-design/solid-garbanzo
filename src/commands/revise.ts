@@ -3,13 +3,14 @@ import { producePost, type PipelineDeps } from "../pipeline.js";
 import { log } from "../util/log.js";
 
 /** Pick up every card in "Needs changes", apply the reviewer's feedback, put a new version back "In review". */
-export async function revise(deps: PipelineDeps): Promise<{ revised: string[]; skipped: string[] }> {
+export async function revise(deps: PipelineDeps): Promise<{ revised: string[]; skipped: string[]; failed: string[] }> {
   const cards = await deps.board.list({ status: "Needs changes" });
   const revised: string[] = [];
   const skipped: string[] = [];
+  const failed: string[] = [];
   if (cards.length === 0) {
     log.info("Nothing in 'Needs changes'.");
-    return { revised, skipped };
+    return { revised, skipped, failed };
   }
   log.step(`Revising ${cards.length} post${cards.length === 1 ? "" : "s"}`);
   for (const card of cards) {
@@ -34,8 +35,8 @@ export async function revise(deps: PipelineDeps): Promise<{ revised: string[]; s
       revised.push(card.postId);
     } catch (err) {
       log.error(`${card.postId}: ${(err as Error).message}`);
-      skipped.push(card.postId);
+      failed.push(card.postId);
     }
   }
-  return { revised, skipped };
+  return { revised, skipped, failed };
 }

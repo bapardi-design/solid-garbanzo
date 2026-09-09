@@ -58,6 +58,6 @@ The card goes to *Failed* with the error text. The common ones:
 - *No public image URLs* — storage is set to local. Fix the storage setting and regenerate with `--force`.
 - Ayrshare errors mention the platform: usually the social account needs re-linking in Ayrshare, or TikTok/Instagram rejected a format (stories need an Instagram Business account).
 
-Fix the cause, set the card back to *Ready to post*, it retries on the next run. Successful channels are kept in the post URLs so you can see what did go out.
+Fix the cause, set the card back to *Ready to post*, it retries on the next run. Channels that already went out are remembered and are not posted a second time; only the failed ones are retried.
 
 Next: [Module 4 · Design templates](04-templates.md)

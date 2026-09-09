@@ -69,8 +69,9 @@ program.command("generate")
     try {
       const env = loadEnv();
       const r = await generate(deps, { week: o.week, ids: o.id, force: o.force, limit: o.limit, timezone: env.AUTOPILOT_TZ });
-      log.info(`\nGenerated: ${r.generated.length}, skipped: ${r.skipped.length}`);
+      log.info(`\nGenerated: ${r.generated.length}, skipped: ${r.skipped.length}, failed: ${r.failed.length}`);
       if (r.generated.length) log.info(`Next: review the cards on the ${deps.board.name} board, then set them to "Ready to post".`);
+      if (r.failed.length) process.exitCode = 1;
     } finally {
       await deps.stop();
     }
@@ -83,7 +84,8 @@ program.command("revise")
     const deps = await pipelineDeps(Boolean(o.offline));
     try {
       const r = await revise(deps);
-      log.info(`\nRevised: ${r.revised.length}, skipped: ${r.skipped.length}`);
+      log.info(`\nRevised: ${r.revised.length}, skipped: ${r.skipped.length}, failed: ${r.failed.length}`);
+      if (r.failed.length) process.exitCode = 1;
     } finally {
       await deps.stop();
     }

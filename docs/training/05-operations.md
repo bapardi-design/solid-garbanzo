@@ -6,7 +6,7 @@
 |---|---|---|---|
 | Generate posts | Mondays 06:00 UTC, manual | `autopilot generate` | `out/`, `board/` |
 | Revise posts | hourly at :15 | `autopilot revise` | `out/`, `board/` |
-| Publish due posts | every 30 minutes | `autopilot publish` | `board/` (local board only) |
+| Publish due posts | every 30 minutes | `autopilot publish` | `out/` (per-channel outcomes), `board/` |
 
 All three share one concurrency group, so they never overlap. The post records in `out/posts/*.json` are the source of truth; the board is the review layer. Both are versioned in git, so every caption ever generated, every feedback and every published URL is in the history.
 

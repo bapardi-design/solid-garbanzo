@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import { CHANNELS } from "./brand.js";
+import { CHANNELS, type Channel } from "./brand.js";
 import type { Paths } from "./config.js";
 import type { PlanPost } from "./plan.js";
 
@@ -42,6 +42,8 @@ export interface PostRecord {
   renders: RenderFile[];
   voiceWarnings: string[];
   boardRef?: string;
+  /** Channels that have already been posted successfully (kept across retries so they are never posted twice). */
+  published?: Partial<Record<Channel, { url: string; at: string }>>;
   history: Array<{ version: number; feedback: string; at: string }>;
   generatedAt: string;
   model: string;

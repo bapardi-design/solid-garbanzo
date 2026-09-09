@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import type { BoardCard, ReviewBoard, Status } from "../src/board/types.js";
 import { loadBrandKit } from "../src/brand.js";
 import { buildRequests, publish, resolveCaption } from "../src/commands/publish.js";
@@ -77,7 +77,7 @@ describe("publish", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pub-"));
   const paths = resolvePaths(tmp);
   fs.mkdirSync(paths.postsDir, { recursive: true });
-  fs.writeFileSync(path.join(paths.postsDir, "w1-p1.json"), JSON.stringify(post));
+  beforeEach(() => fs.writeFileSync(path.join(paths.postsDir, "w1-p1.json"), JSON.stringify(post)));
 
   const okPublisher: Publisher = { name: "ok", needsPublicUrls: true, publish: async (r: PublishRequest) => ({ url: `https://${r.channel}/p` }) };
 
@@ -128,5 +128,30 @@ describe("adapters", () => {
       cloudinarySignature({ folder: "f", public_id: "p", timestamp: 1 }, "secret"),
     );
     expect(cloudinarySignature({ folder: "f", public_id: "p", timestamp: 1 }, "secret")).toMatch(/^[a-f0-9]{40}$/);
+  });
+});
+
+describe("publish retry after partial failure", () => {
+  it("skips channels already posted and merges their urls", async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pub-retry-"));
+    const paths = resolvePaths(tmp);
+    fs.mkdirSync(paths.postsDir, { recursive: true });
+    const board = new MemoryBoard([card]);
+    const attempted: string[] = [];
+    const flaky: Publisher = { name: "flaky", needsPublicUrls: true, publish: async (r) => { attempted.push(r.channel); if (r.channel === "tiktok" && attempted.filter((c) => c === "tiktok").length === 1) throw new Error("TikTok down"); return { url: `https://${r.channel}/p` }; } };
+
+    fs.writeFileSync(path.join(paths.postsDir, "w1-p1.json"), JSON.stringify(post));
+    const first = await publish({ kit, paths, board, publisher: flaky, now: new Date("2026-09-14T07:00:00Z"), windowMinutes: 30 }, { all: true });
+    expect(first.failed).toEqual(["w1-p1"]);
+    const saved = JSON.parse(fs.readFileSync(path.join(paths.postsDir, "w1-p1.json"), "utf8")) as PostRecord;
+    expect(Object.keys(saved.published ?? {})).toEqual(["instagram"]);
+
+    // Reviewer sets the card back to "Ready to post": only tiktok is attempted again.
+    const second = await publish({ kit, paths, board, publisher: flaky, now: new Date("2026-09-14T07:00:00Z"), windowMinutes: 30 }, { all: true });
+    expect(second.posted).toEqual(["w1-p1"]);
+    expect(attempted).toEqual(["instagram", "tiktok", "tiktok"]);
+    const last = board.updates.at(-1)!;
+    expect(last.status).toBe("Posted");
+    expect((last.extra as { postUrls: string[] }).postUrls.sort()).toEqual(["https://instagram/p", "https://tiktok/p"]);
   });
 });

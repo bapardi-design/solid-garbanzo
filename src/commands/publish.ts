@@ -1,7 +1,7 @@
 import type { ReviewBoard, BoardCard } from "../board/index.js";
 import type { BrandKit } from "../brand.js";
 import type { Paths } from "../config.js";
-import { captionFor, hashtagLine, loadPost, primaryCaption, type PostRecord } from "../post.js";
+import { captionFor, hashtagLine, loadPost, primaryCaption, savePost, type PostRecord } from "../post.js";
 import type { Publisher, PublishRequest } from "../publish/index.js";
 import { isDue } from "../util/time.js";
 import { log } from "../util/log.js";
@@ -22,8 +22,9 @@ export function resolveCaption(post: PostRecord, card: BoardCard, channel: strin
   return onCard && onCard !== generated ? onCard : captionFor(post, channel);
 }
 
+/** One request per channel still to be posted. Channels recorded in `post.published` are skipped, so a retry after a partial failure never double-posts. */
 export function buildRequests(kit: BrandKit, post: PostRecord, card: BoardCard): PublishRequest[] {
-  const channels = card.channels?.length ? card.channels : post.plan.channels;
+  const channels = (card.channels?.length ? card.channels : post.plan.channels).filter((c) => !post.published?.[c]);
   return channels.map((channel) => {
     const cfg = kit.brand.channels[channel];
     const caption = resolveCaption(post, card, channel);
@@ -66,6 +67,8 @@ export async function publish(deps: PublishDeps, opts: { all?: boolean; ids?: st
     }
     log.step(`Publishing ${card.postId} (scheduled ${when})`);
     const requests = buildRequests(deps.kit, post, card);
+    const alreadyPosted = Object.keys(post.published ?? {});
+    if (alreadyPosted.length) log.info(`  already posted to ${alreadyPosted.join(", ")} — retrying the rest only`);
     if (deps.publisher.needsPublicUrls && requests.some((r) => r.mediaUrls.length === 0)) {
       const msg = "No public image URLs. Set STORAGE=github (public repo) or STORAGE=cloudinary and regenerate with --force.";
       log.error(`${card.postId}: ${msg}`);
@@ -74,18 +77,21 @@ export async function publish(deps: PublishDeps, opts: { all?: boolean; ids?: st
       continue;
     }
     await deps.board.setStatus(card.ref, "Posting");
-    const urls: string[] = [];
+    post.published = { ...(post.published ?? {}) };
     const errors: string[] = [];
     for (const req of requests) {
       try {
         const res = await deps.publisher.publish(req);
-        urls.push(res.url ?? `${req.channel}:${res.externalId ?? "ok"}`);
-        log.ok(`${req.channel}: ${res.url ?? res.externalId ?? "posted"}`);
+        const url = res.url ?? `${req.channel}:${res.externalId ?? "ok"}`;
+        post.published[req.channel] = { url, at: deps.now.toISOString() };
+        savePost(deps.paths, post); // persist immediately so a crash mid-loop can't cause a repost
+        log.ok(`${req.channel}: ${url}`);
       } catch (err) {
         errors.push(`${req.channel}: ${(err as Error).message}`);
         log.error(`${req.channel}: ${(err as Error).message}`);
       }
     }
+    const urls = Object.values(post.published).map((p) => p.url);
     if (errors.length === 0) {
       await deps.board.setStatus(card.ref, "Posted", { postUrls: urls, error: "" });
       posted.push(card.postId);

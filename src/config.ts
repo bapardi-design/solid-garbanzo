@@ -39,8 +39,13 @@ export interface Paths {
   boardDir: string;
 }
 
+/** GitHub Actions exports unset `vars.*` as empty strings; treat those as unset so the defaults apply. */
+export function stripEmpty(env: Record<string, string | undefined>): Record<string, string> {
+  return Object.fromEntries(Object.entries(env).filter((e): e is [string, string] => typeof e[1] === "string" && e[1].trim() !== ""));
+}
+
 export function loadEnv(overrides: Partial<Env> = {}): Env {
-  const parsed = EnvSchema.safeParse({ ...process.env, ...overrides });
+  const parsed = EnvSchema.safeParse({ ...stripEmpty(process.env), ...overrides });
   if (!parsed.success) {
     throw new Error(`Invalid environment: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
   }

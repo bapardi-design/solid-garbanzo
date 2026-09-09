@@ -11,18 +11,19 @@ export interface GenerateOptions {
   timezone: string;
 }
 
-export async function generate(deps: PipelineDeps, opts: GenerateOptions): Promise<{ generated: string[]; skipped: string[] }> {
+export async function generate(deps: PipelineDeps, opts: GenerateOptions): Promise<{ generated: string[]; skipped: string[]; failed: string[] }> {
   let posts = loadPlan(deps.paths, deps.kit, opts.timezone);
   if (opts.week !== undefined) posts = posts.filter((p) => p.week === opts.week);
   if (opts.ids?.length) posts = posts.filter((p) => opts.ids!.includes(p.id));
   if (opts.limit) posts = posts.slice(0, opts.limit);
   if (posts.length === 0) {
     log.warn("No posts matched. Check --week / --id against brand/content-plan.yaml.");
-    return { generated: [], skipped: [] };
+    return { generated: [], skipped: [], failed: [] };
   }
 
   const generated: string[] = [];
   const skipped: string[] = [];
+  const failed: string[] = [];
   log.step(`Generating ${posts.length} post${posts.length === 1 ? "" : "s"} with ${deps.model}`);
   for (const plan of posts) {
     const existing = loadPost(deps.paths, plan.id);
@@ -37,8 +38,8 @@ export async function generate(deps: PipelineDeps, opts: GenerateOptions): Promi
       generated.push(plan.id);
     } catch (err) {
       log.error(`${plan.id}: ${(err as Error).message}`);
-      skipped.push(plan.id);
+      failed.push(plan.id);
     }
   }
-  return { generated, skipped };
+  return { generated, skipped, failed };
 }
