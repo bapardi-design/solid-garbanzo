@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build:engine": "cd ../sim-engine && npm ci --no-audit --no-fund && npm run build && cd ../manager-app",
+    "build:engine": "cd ../sim-engine && npm ci --include=dev --no-audit --no-fund && npm run build && cd ../manager-app",
     "build": "npm run build:engine && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit"
