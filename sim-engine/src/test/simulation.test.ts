@@ -91,3 +91,30 @@ test('html report renders every section from a run', async () => {
   assert.ok(!html.includes('undefined'), 'report contains undefined');
   assert.ok(!html.includes('NaN'), 'report contains NaN');
 });
+
+test('human manager can take over, buy, list, renew, and gets sacked by the board', async () => {
+  const A = await import('../actions.js');
+  const { createGame, step } = await import('../browser/engine.js');
+  const game = createGame({ ...small, seed: 'career' });
+  const { ctx, world } = game;
+  const clubId = A.jobOffers(ctx)[0].club.id;
+  const manager = A.takeOverClub(ctx, clubId, 'Test Manager');
+  assert.equal(world.humanClubId, clubId);
+  assert.equal(world.clubs[clubId].managerId, manager.id);
+  step(game, 2); // into the summer window (Monday of week 1)
+  assert.ok(A.setTactic(ctx, 'attacking').ok);
+  const market = A.marketForHuman(ctx);
+  assert.ok(market.length > 0, 'market has listings');
+  const target = market.find((m) => m.affordable);
+  assert.ok(target, 'an affordable listing exists');
+  let bought = false;
+  for (let i = 0; i < 12 && !bought; i++) bought = A.bidForPlayer(ctx, target!.player.id, 2).ok || A.marketForHuman(ctx).find((m) => m.player.id === target!.player.id) === undefined;
+  const own = world.idx.squadByClub[clubId];
+  const listed = A.listPlayer(ctx, own[own.length - 1], 500);
+  assert.ok(listed.ok);
+  const terms = A.renewalTerms(ctx, own[0]);
+  assert.ok(terms);
+  step(game, 400); // through a season end; the human club must not be AI-managed meanwhile
+  assert.ok(world.humanClubId === clubId || world.careerOver !== null);
+  assert.deepEqual(checkInvariants(world), []);
+});

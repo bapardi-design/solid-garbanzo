@@ -18,5 +18,18 @@
     "@types/node": "^22.0.0",
     "esbuild": "^0.25.12",
     "typescript": "^5.9.0"
-  }
+  },
+  "main": "./dist/browser/engine.js",
+  "types": "./dist/browser/engine.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/browser/engine.d.ts",
+      "default": "./dist/browser/engine.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
 }

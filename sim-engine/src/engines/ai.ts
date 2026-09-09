@@ -15,6 +15,7 @@ export function chooseTactics(ctx: Ctx): void {
     leagueAvg.set(comp.id, avg);
   }
   for (const club of Object.values(world.clubs)) {
+    if (club.id === world.humanClubId) continue;
     const avg = leagueAvg.get(club.leagueId);
     if (avg === undefined) continue;
     const manager = club.managerId ? world.managers[club.managerId] : null;
@@ -49,7 +50,9 @@ export function boardReview(ctx: Ctx, final: boolean): void {
     const underperforming = position > club.boardTarget + tolerance;
     const poorForm = final || (club.form.length >= 6 && formPts <= 4);
     if (underperforming && poorForm) {
-      ctx.emit('MANAGER_SACKED', { managerId, clubId: club.id, reason: `${position}${final ? 'th at season end' : 'th'} vs target ${club.boardTarget}, form ${formPts}/${club.form.length * 3}` });
+      const reason = `${position}${final ? 'th at season end' : 'th'} vs target ${club.boardTarget}, form ${formPts}/${club.form.length * 3}`;
+      ctx.emit('MANAGER_SACKED', { managerId, clubId: club.id, reason });
+      if (club.id === world.humanClubId) ctx.emit('CAREER_ENDED', { clubId: club.id, reason });
     }
   }
 }
@@ -61,6 +64,7 @@ export function expireManagerContracts(ctx: Ctx): void {
     // Capture the id first: expiring the contract clears club.managerId.
     const managerId = club.managerId;
     if (!managerId) continue;
+    if (club.id === world.humanClubId) continue;
     const manager = world.managers[managerId];
     if (manager.contractEndSeason !== world.season) continue;
     const league = currentLeague(ctx, club.id);
