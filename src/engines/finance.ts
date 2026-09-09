@@ -8,6 +8,8 @@ import type { Standing } from '../matchday/table.js';
 
 export const TICKET_PRICE_K = 0.022;
 export const SPONSOR_PER_REP_WEEKLY = 2.6;
+/** Weekly running costs (staff, stadium, academy) per reputation point. */
+export const OPERATIONS_PER_REP_WEEKLY = 2;
 
 export function weeklyFinance(ctx: Ctx): void {
   const { world } = ctx;
@@ -16,6 +18,7 @@ export function weeklyFinance(ctx: Ctx): void {
     const wages = weeklyWageBill(world, club.id);
     if (wages > 0) entries.push({ clubId: club.id, category: 'wages', amount: -wages });
     entries.push({ clubId: club.id, category: 'sponsorship', amount: Math.round(club.reputation * SPONSOR_PER_REP_WEEKLY) });
+    entries.push({ clubId: club.id, category: 'operations', amount: -Math.round(club.reputation * OPERATIONS_PER_REP_WEEKLY) });
   }
   ctx.emit('FINANCE_POSTED', { entries });
 }
@@ -48,7 +51,8 @@ export function projectedSeasonIncome(ctx: Ctx, clubId: string): number {
   const gate = club.stadiumCapacity * 0.7 * TICKET_PRICE_K * homeGames;
   const sponsor = club.reputation * SPONSOR_PER_REP_WEEKLY * 52;
   const prize = tier === 1 ? 7500 : tier === 2 ? 2200 : 700;
-  return gate + sponsor + prize;
+  const operations = club.reputation * OPERATIONS_PER_REP_WEEKLY * 52;
+  return gate + sponsor + prize - operations;
 }
 
 export function setBudgets(ctx: Ctx): void {
@@ -61,7 +65,7 @@ export function setBudgets(ctx: Ctx): void {
       const club = world.clubs[clubId];
       const income = projectedSeasonIncome(ctx, clubId);
       // Rich clubs may run wages above income; poor clubs are held below it.
-      const wageBudget = Math.round(Math.max(income * 0.95, income * 0.7 + club.balance * 0.25) / 52);
+      const wageBudget = Math.round(Math.max(income * 1.1, income * 0.8 + club.balance * 0.25) / 52);
       const transferBudget = Math.round(Math.max(0, club.balance * 0.45 + (income - weeklyWageBill(world, clubId) * 52) * 0.25));
       budgets[clubId] = { wageBudget, transferBudget, boardTarget: i + 1 };
     });

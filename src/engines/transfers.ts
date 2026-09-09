@@ -29,10 +29,10 @@ function rankAtClub(ctx: Ctx, p: Player): number {
 
 function starterSlots(pos: Position): number { return FORMATIONS.balanced.slots[pos]; }
 
-interface Listing { player: Player; askingPrice: number; fromClubId: string | null }
+export interface Listing { player: Player; askingPrice: number; fromClubId: string | null }
 
 /** Players clubs would sell, and the price they want. */
-function buildMarket(ctx: Ctx): Listing[] {
+export function buildMarket(ctx: Ctx): Listing[] {
   const { world } = ctx;
   const listings: Listing[] = [];
   for (const id of world.freeAgents) {
@@ -63,9 +63,9 @@ function buildMarket(ctx: Ctx): Listing[] {
   return listings;
 }
 
-interface Need { pos: Position; minRating: number; priority: number }
+export interface Need { pos: Position; minRating: number; priority: number }
 
-function clubNeeds(ctx: Ctx, clubId: string, leagueLine: Record<Position, number>): Need[] {
+export function clubNeeds(ctx: Ctx, clubId: string, leagueLine: Record<Position, number>): Need[] {
   const { world } = ctx;
   const players = squad(world, clubId);
   const needs: Need[] = [];
@@ -80,13 +80,16 @@ function clubNeeds(ctx: Ctx, clubId: string, leagueLine: Record<Position, number
     const starters = byPos.slice(0, slots);
     const line = starters.length ? starters.reduce((s, p) => s + overall(p), 0) / starters.length : 0;
     const weakest = starters.length ? overall(starters[starters.length - 1]) : 0;
+    const club = world.clubs[clubId];
+    const weakestValue = starters.length ? starters[starters.length - 1].value : 0;
     if (line < leagueLine[pos] - 2) needs.push({ pos, minRating: weakest + 3, priority: 2 });
+    else if (club.transferBudget > weakestValue * 3 && players.length < MAX_SQUAD - 2) needs.push({ pos, minRating: weakest + 2, priority: 1.5 });
     else if (players.length < world.config.squadSize) needs.push({ pos, minRating: weakest - 15, priority: 1 });
   }
   return needs.sort((a, b) => b.priority - a.priority);
 }
 
-function leagueLines(ctx: Ctx, leagueId: string): Record<Position, number> {
+export function leagueLines(ctx: Ctx, leagueId: string): Record<Position, number> {
   const { world } = ctx;
   const comp = world.competitions[leagueId];
   const out: Record<Position, number> = { GK: 50, DF: 50, MF: 50, FW: 50 };
