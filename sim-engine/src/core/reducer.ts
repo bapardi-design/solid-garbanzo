@@ -60,6 +60,32 @@ export function reduce(w: World, e: Event): void {
       w.seasonLength = e.payload.config.seasonLength;
       break;
     }
+    case 'NATION_CREATED': {
+      const n = structuredClone(e.payload.nation);
+      w.nations[n.id] = n;
+      break;
+    }
+    case 'NEWS_PUBLISHED': {
+      for (const item of e.payload.items) { noteId(w, item.id); w.news.push(structuredClone(item)); }
+      if (w.news.length > 600) w.news.splice(0, w.news.length - 600);
+      break;
+    }
+    case 'BID_RECEIVED': {
+      const bid = structuredClone(e.payload.bid);
+      noteId(w, bid.id);
+      w.pendingBids.push(bid);
+      break;
+    }
+    case 'BID_RESOLVED': {
+      const i = w.pendingBids.findIndex((b) => b.id === e.payload.bidId);
+      if (i >= 0) w.pendingBids.splice(i, 1);
+      break;
+    }
+    case 'AWARDS_GIVEN': {
+      const summary = w.history.find((h) => h.season === e.payload.season);
+      if (summary) summary.awards = structuredClone(e.payload.awards);
+      break;
+    }
     case 'CLUB_CREATED': {
       // Entities are cloned on the way in so the event log never aliases live state.
       const club = structuredClone(e.payload.club);
@@ -185,8 +211,8 @@ export function reduce(w: World, e: Event): void {
     case 'FINANCE_POSTED': {
       for (const entry of e.payload.entries) {
         const c = w.clubs[entry.clubId];
-        c.balance += entry.amount;
-        c.ledger[entry.category] = (c.ledger[entry.category] ?? 0) + entry.amount;
+        c.balance = Math.round((c.balance + entry.amount) * 10) / 10;
+        c.ledger[entry.category] = Math.round(((c.ledger[entry.category] ?? 0) + entry.amount) * 10) / 10;
       }
       break;
     }
@@ -287,6 +313,7 @@ export function reduce(w: World, e: Event): void {
       comp.alive = [...e.payload.alive];
       comp.winnerId = e.payload.winnerId;
       comp.complete = e.payload.winnerId !== null;
+      if (comp.round > 0) comp.stage = 'knockout';
       break;
     }
     case 'BUDGETS_SET': {

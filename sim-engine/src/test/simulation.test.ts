@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { DEFAULT_CONFIG } from '../core/schema.js';
+import { CUSTOM_CONFIG } from '../core/schema.js';
 import { runSeasons } from '../sim/runner.js';
 import { reduce } from '../core/reducer.js';
 import { createEmptyWorld } from '../core/schema.js';
 import { hashWorld } from '../sim/snapshot.js';
 import { checkInvariants } from '../sim/invariants.js';
 
-const small = { ...DEFAULT_CONFIG, seed: 'test-run', leagues: 2, clubsPerLeague: 6, squadSize: 20 };
+const small = { ...CUSTOM_CONFIG, seed: 'test-run', leagues: 2, clubsPerLeague: 6, squadSize: 20 };
 
 test('two seasons run with invariants holding and plausible match stats', () => {
   const result = runSeasons({ config: small, seasons: 2, strict: true });
@@ -69,13 +69,13 @@ test('promotion and relegation swap clubs between tiers', () => {
   assert.equal(summary.promoted.length, 1);
   assert.equal(summary.relegated.length, 1);
   const w = result.world;
-  assert.equal(w.clubs[summary.promoted[0]].leagueId, 'L1');
-  assert.equal(w.clubs[summary.relegated[0]].leagueId, 'L2');
+  assert.equal(w.clubs[summary.promoted[0]].leagueId, 'CUS-T1');
+  assert.equal(w.clubs[summary.relegated[0]].leagueId, 'CUS-T2');
   assert.ok(summary.topScorer && !w.players[summary.topScorer.playerId].retired || summary.topScorer === null);
 });
 
 test('transfer market produces activity in the first season', () => {
-  const result = runSeasons({ config: { ...DEFAULT_CONFIG, seed: 'market' }, seasons: 1 });
+  const result = runSeasons({ config: { ...CUSTOM_CONFIG, seed: 'market' }, seasons: 1 });
   const t = result.seasons[0].metrics.transfers;
   assert.ok((t.transfer ?? 0) + (t.free ?? 0) > 0, `no signings: ${JSON.stringify(t)}`);
   assert.ok((t.renewal ?? 0) > 0);

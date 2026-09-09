@@ -1,7 +1,7 @@
 /** Transfer market: signings, free agents, loans, and contract renewals. */
 import type { Ctx } from '../core/context.js';
 import type { Player, Position, TransferRecord } from '../core/schema.js';
-import { POSITIONS, contractOf, nextId, seasonDay, squad, tierOfClub } from '../core/schema.js';
+import { POSITIONS, bottomTier, contractOf, isRealWorld, nextId, seasonDay, squad, tierOfClub } from '../core/schema.js';
 import { overall, wageDemand, weeklyWageBill } from '../rating.js';
 import { FORMATIONS } from '../matchday/xi.js';
 import { contractLengthFor, makeContract } from '../world/generate.js';
@@ -11,6 +11,20 @@ export const WINTER_WINDOW: [number, number] = [168, 195];
 export const MIN_PER_POSITION: Record<Position, number> = { GK: 2, DF: 6, MF: 6, FW: 3 };
 export const MAX_SQUAD = 30;
 const MAX_SIGNINGS_PER_DAY = 2;
+/** Real-world clubs rebuild gradually: paid or free signings per window. */
+const MAX_SIGNINGS_PER_WINDOW = 4;
+
+export function signingsThisWindow(world: Ctx['world'], clubId: string): number {
+  const sd = seasonDay(world);
+  const windowStart = world.seasonStartDay + (sd >= WINTER_WINDOW[0] ? WINTER_WINDOW[0] : SUMMER_WINDOW[0]);
+  let n = 0;
+  for (let i = world.transfers.length - 1; i >= 0; i--) {
+    const t = world.transfers[i];
+    if (t.day < windowStart) break;
+    if (t.toClubId === clubId && (t.kind === 'transfer' || t.kind === 'free')) n++;
+  }
+  return n;
+}
 
 export function inTransferWindow(world: Ctx['world']): boolean {
   const sd = seasonDay(world);
@@ -34,6 +48,7 @@ export interface Listing { player: Player; askingPrice: number; fromClubId: stri
 /** Players clubs would sell, and the price they want. */
 export function buildMarket(ctx: Ctx): Listing[] {
   const { world } = ctx;
+  const real = isRealWorld(world);
   const listings: Listing[] = [];
   for (const id of world.freeAgents) {
     const p = world.players[id];
@@ -57,6 +72,7 @@ export function buildMarket(ctx: Ctx): Listing[] {
         if (cashStrapped && rank > 1) mult = 0.85;
         else if (surplus) mult = 0.95;
         else if (expiring && p.age >= 27) mult = 0.7;
+        else if (real) mult = club.reputation < 80 && rank <= starterSlots(pos) ? 2.2 : rank > starterSlots(pos) ? 1.5 : null;
         else if (rank > 1) mult = 1.6;
         if (mult !== null && byPos.length > MIN_PER_POSITION[pos]) {
           listings.push({ player: p, askingPrice: Math.round(p.value * mult), fromClubId: club.id });
@@ -119,6 +135,8 @@ export function runTransferDay(ctx: Ctx): void {
   const sold = new Set<string>();
   const clubs = rng.shuffle(Object.values(world.clubs).map((c) => c.id));
   const lineCache = new Map<string, Record<Position, number>>();
+  const real = isRealWorld(world);
+  const priceScale = real ? 12000 : 2000;
 
   for (const clubId of clubs) {
     if (clubId === world.humanClubId) continue;
@@ -126,16 +144,18 @@ export function runTransferDay(ctx: Ctx): void {
     if (!lineCache.has(club.leagueId)) lineCache.set(club.leagueId, leagueLines(ctx, club.leagueId));
     const needs = clubNeeds(ctx, clubId, lineCache.get(club.leagueId)!);
     let signings = 0;
+    const alreadySigned = real ? signingsThisWindow(world, clubId) : 0;
     for (const need of needs) {
       if (signings >= MAX_SIGNINGS_PER_DAY) break;
+      if (real && alreadySigned + signings >= MAX_SIGNINGS_PER_WINDOW && need.priority < 3) break;
       if (squad(world, clubId).length >= MAX_SQUAD) break;
       const wageRoom = club.wageBudget - weeklyWageBill(world, clubId);
       const candidates = market
         .filter((l) => l.player.position === need.pos && l.fromClubId !== clubId && !sold.has(l.player.id) && !l.player.retired)
         .filter((l) => overall(l.player) >= need.minRating && l.askingPrice <= club.transferBudget)
         .map((l) => {
-          const wage = Math.round(Math.max(l.fromClubId ? contractOf(world, l.player.id)?.wage ?? 0 : 0, wageDemand(l.player)) * (l.fromClubId ? 1.1 : 1.0));
-          return { l, wage, score: overall(l.player) + (l.player.age < 24 ? (l.player.potential - overall(l.player)) * 0.3 : 0) - l.askingPrice / 2000 };
+          const wage = Math.round(Math.max(l.fromClubId ? contractOf(world, l.player.id)?.wage ?? 0 : 0, wageDemand(l.player, real)) * (l.fromClubId ? 1.1 : 1.0) * 10) / 10;
+          return { l, wage, score: overall(l.player) + (l.player.age < 24 ? (l.player.potential - overall(l.player)) * 0.3 : 0) - l.askingPrice / priceScale };
         })
         .filter((c) => c.wage <= wageRoom)
         .sort((a, b) => b.score - a.score || a.l.player.id.localeCompare(b.l.player.id));
@@ -169,7 +189,7 @@ function runLoans(ctx: Ctx, moved: Set<string>): void {
       .filter((p) => ranked(squad(world, ownerId), p.position).length > MIN_PER_POSITION[p.position]);
     if (prospects.length === 0) continue;
     const prospect = rng.pick(prospects);
-    const hosts = clubs.filter((cid) => cid !== ownerId && cid !== world.humanClubId && tierOfClub(world, cid) > ownerTier && squad(world, cid).length < MAX_SQUAD);
+    const hosts = clubs.filter((cid) => cid !== ownerId && cid !== world.humanClubId && world.clubs[cid].nationId === owner.nationId && tierOfClub(world, cid) > ownerTier && squad(world, cid).length < MAX_SQUAD);
     const willing = hosts.filter((cid) => {
       const club = world.clubs[cid];
       if (!lineCache.has(club.leagueId)) lineCache.set(club.leagueId, leagueLines(ctx, club.leagueId));
@@ -177,17 +197,17 @@ function runLoans(ctx: Ctx, moved: Set<string>): void {
       const wage = contractOf(world, prospect.id)?.wage ?? 0;
       return need !== undefined && overall(prospect) >= need.minRating - 2 && wage <= club.wageBudget - weeklyWageBill(world, cid);
     });
-    if (willing.length === 0 || ownerTier === world.config.leagues) continue;
+    if (willing.length === 0 || ownerTier === bottomTier(world, owner.nationId)) continue;
     const hostId = rng.pick(willing);
     ctx.emit('LOAN_STARTED', { record: record(ctx, prospect, ownerId, hostId, 0, 'loan'), returnSeason: world.season });
     moved.add(prospect.id);
-    void owner;
   }
 }
 
 /** Renew expiring contracts for players the club wants to keep. */
 export function renewContracts(ctx: Ctx, finalCall: boolean): void {
   const { world, rng } = ctx;
+  const real = isRealWorld(world);
   for (const club of Object.values(world.clubs)) {
     if (club.id === world.humanClubId && !finalCall) continue;
     const players = squad(world, club.id).filter((p) => !p.loan);
@@ -204,7 +224,7 @@ export function renewContracts(ctx: Ctx, finalCall: boolean): void {
       const tooOld = p.age >= 34;
       if (tooOld || !(keyPlayer || prospect || depth)) continue;
       if (!finalCall && !rng.chance(0.5)) continue;
-      const wage = Math.max(c.wage, wageDemand(p));
+      const wage = Math.max(c.wage, wageDemand(p, real));
       const extra = wage - c.wage;
       if (extra > roomLeft && club.balance < 0) continue;
       if (!rng.chance(0.4 + p.morale / 200)) continue;

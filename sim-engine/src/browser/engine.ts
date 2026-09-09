@@ -10,7 +10,7 @@ import { generateWorld } from '../world/generate.js';
 import { computeTable } from '../matchday/table.js';
 import { explainMatch } from '../matchday/match.js';
 import { overall, averageRating } from '../rating.js';
-import { tierFromLeagueId } from '../engines/season.js';
+import { tierFromLeagueId } from '../core/schema.js';
 import { tickDay } from '../sim/tick.js';
 import { seasonMetrics, type SeasonMetrics } from '../sim/metrics.js';
 import { checkInvariants } from '../sim/invariants.js';

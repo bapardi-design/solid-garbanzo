@@ -89,7 +89,7 @@ export function fillManagerVacancies(ctx: Ctx): void {
     if (pool.length > 0 && rng.chance(0.85)) {
       managerId = pool[Math.min(pool.length - 1, rng.int(0, 1))].id;
     } else {
-      const manager = generateManager(ctx, null, club.reputation);
+      const manager = generateManager(ctx, null, club.reputation, club.nationId);
       ctx.emit('MANAGER_CREATED', { manager });
       managerId = manager.id;
     }

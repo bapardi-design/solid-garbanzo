@@ -1,5 +1,5 @@
 import type {
-  Attributes, Club, Competition, Contract, Fixture, Manager, MatchReport, Player, SeasonSummary, Tactic, TransferRecord, WorldConfig,
+  Attributes, Club, Competition, Contract, Fixture, Manager, MatchReport, Nation, NewsItem, Player, SeasonSummary, Tactic, TransferBid, TransferRecord, WorldConfig,
 } from './schema.js';
 
 export interface PlayerMatchStats {
@@ -14,6 +14,7 @@ export interface FinanceEntry { clubId: string; category: string; amount: number
 
 export interface EventPayloads {
   WORLD_CREATED: { seed: string; config: WorldConfig };
+  NATION_CREATED: { nation: Nation };
   CLUB_CREATED: { club: Club };
   PLAYER_CREATED: { player: Player };
   MANAGER_CREATED: { manager: Manager };
@@ -53,7 +54,13 @@ export interface EventPayloads {
   PLAYER_UNLISTED: { playerId: string };
   PLAYER_RELEASED: { playerId: string; clubId: string; payoff: number };
   CAREER_ENDED: { clubId: string; reason: string };
+  NEWS_PUBLISHED: { items: NewsItem[] };
+  BID_RECEIVED: { bid: TransferBid };
+  BID_RESOLVED: { bidId: string; accepted: boolean };
+  AWARDS_GIVEN: { season: number; awards: Award[] };
 }
+
+export interface Award { title: string; nationId: string | null; playerId: string | null; clubId: string | null; managerId: string | null; detail: string }
 
 export type EventType = keyof EventPayloads;
 

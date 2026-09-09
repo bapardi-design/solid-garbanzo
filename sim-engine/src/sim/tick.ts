@@ -46,7 +46,7 @@ export function tickDay(ctx: Ctx): void {
         playerStats: outcome.playerStats,
       });
       for (const inj of outcome.injuries) ctx.emit('PLAYER_INJURED', inj);
-      gate.push(matchdayIncome(fixture, outcome.report.attendance));
+      gate.push(matchdayIncome(world, fixture, outcome.report.attendance));
       postMatchMorale(ctx, fixture);
     }
     if (gate.length) ctx.emit('FINANCE_POSTED', { entries: gate });

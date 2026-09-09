@@ -6,7 +6,7 @@
 import type { CompetitionLeague, Fixture, GoalFactor, World } from '../core/schema.js';
 import { computeTable } from '../matchday/table.js';
 import { overall } from '../rating.js';
-import { tierFromLeagueId } from '../engines/season.js';
+import { tierFromLeagueId } from '../core/schema.js';
 import type { RunResult, SeasonResult } from './runner.js';
 
 const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));

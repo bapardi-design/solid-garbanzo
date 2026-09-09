@@ -1,4 +1,4 @@
-/** Fixture scheduling: Berger-table round robin for leagues, knockout rounds for cups. */
+/** Fixture scheduling: Berger-table round robin for leagues and groups, knockout rounds for cups. */
 import type { Ctx } from '../core/context.js';
 import type { CompetitionCup, CompetitionLeague, Fixture } from '../core/schema.js';
 import { nextId } from '../core/schema.js';
@@ -37,11 +37,21 @@ export function doubleRoundRobin(teams: readonly string[]): Pairing[][] {
   return [...first, ...second];
 }
 
+/**
+ * Weekly rhythm (weekday 0 = Monday of the season's first week):
+ *   Tue continental, Wed domestic cup, Thu league cup, Sat league.
+ */
 export const FIRST_LEAGUE_WEEK = 4;
 export const LEAGUE_MATCH_WEEKDAY = 5;
 export const CUP_MATCH_WEEKDAY = 2;
 export const CUP_FIRST_WEEK = 6;
 export const CUP_WEEK_GAP = 4;
+export const LEAGUE_CUP_WEEKDAY = 3;
+export const LEAGUE_CUP_FIRST_WEEK = 5;
+export const CONTINENTAL_WEEKDAY = 1;
+export const CONTINENTAL_GROUP_WEEKS = [8, 10, 12, 14, 16, 18];
+export const CONTINENTAL_FINAL_WEEK = 36;
+export const CONTINENTAL_KNOCKOUT_GAP = 4;
 
 export function leagueRoundDay(world: Ctx['world'], round: number): number {
   return world.seasonStartDay + (FIRST_LEAGUE_WEEK + round - 1) * 7 + LEAGUE_MATCH_WEEKDAY;
@@ -49,6 +59,44 @@ export function leagueRoundDay(world: Ctx['world'], round: number): number {
 
 export function cupRoundDay(world: Ctx['world'], round: number): number {
   return world.seasonStartDay + (CUP_FIRST_WEEK + (round - 1) * CUP_WEEK_GAP) * 7 + CUP_MATCH_WEEKDAY;
+}
+
+/** Day of a cup's knockout round, by cup kind. */
+export function cupDay(world: Ctx['world'], comp: CompetitionCup, round: number): number {
+  switch (comp.cupKind) {
+    case 'leagueCup':
+      return world.seasonStartDay + (LEAGUE_CUP_FIRST_WEEK + (round - 1) * CUP_WEEK_GAP) * 7 + LEAGUE_CUP_WEEKDAY;
+    case 'continental': {
+      const week = CONTINENTAL_FINAL_WEEK - (comp.totalRounds - round) * CONTINENTAL_KNOCKOUT_GAP;
+      return world.seasonStartDay + week * 7 + CONTINENTAL_WEEKDAY;
+    }
+    default:
+      return cupRoundDay(world, round);
+  }
+}
+
+export function groupMatchday(world: Ctx['world'], matchday: number): number {
+  const week = CONTINENTAL_GROUP_WEEKS[Math.min(matchday - 1, CONTINENTAL_GROUP_WEEKS.length - 1)];
+  return world.seasonStartDay + week * 7 + CONTINENTAL_WEEKDAY;
+}
+
+function blankFixture(world: Ctx['world'], competitionId: string, season: number, round: number, day: number, home: string, away: string, knockout: boolean, group: number | null): Fixture {
+  return {
+    id: nextId(world, 'f', 6),
+    competitionId,
+    season,
+    round,
+    day,
+    homeClubId: home,
+    awayClubId: away,
+    group,
+    knockout,
+    played: false,
+    homeGoals: 0,
+    awayGoals: 0,
+    winnerId: null,
+    report: null,
+  };
 }
 
 export function scheduleLeague(ctx: Ctx, comp: CompetitionLeague): Fixture[] {
@@ -62,23 +110,21 @@ export function scheduleLeague(ctx: Ctx, comp: CompetitionLeague): Fixture[] {
   const fixtures: Fixture[] = [];
   rounds.forEach((round, i) => {
     const day = leagueRoundDay(world, i + 1);
-    for (const [home, away] of round) {
-      fixtures.push({
-        id: nextId(world, 'f', 6),
-        competitionId: comp.id,
-        season: comp.season,
-        round: i + 1,
-        day,
-        homeClubId: home,
-        awayClubId: away,
-        knockout: false,
-        played: false,
-        homeGoals: 0,
-        awayGoals: 0,
-        winnerId: null,
-        report: null,
-      });
-    }
+    for (const [home, away] of round) fixtures.push(blankFixture(world, comp.id, comp.season, i + 1, day, home, away, false, null));
+  });
+  return fixtures;
+}
+
+/** Group-stage fixtures: a double round robin inside each group. */
+export function scheduleGroups(ctx: Ctx, comp: CompetitionCup): Fixture[] {
+  const { world, rng } = ctx;
+  const fixtures: Fixture[] = [];
+  (comp.groups ?? []).forEach((group, g) => {
+    const rounds = doubleRoundRobin(rng.shuffle([...group]));
+    rounds.forEach((round, i) => {
+      const day = groupMatchday(world, i + 1);
+      for (const [home, away] of round) fixtures.push(blankFixture(world, comp.id, comp.season, i + 1, day, home, away, false, g));
+    });
   });
   return fixtures;
 }
@@ -97,24 +143,10 @@ export function scheduleCupRound(ctx: Ctx, comp: CompetitionCup): { fixtures: Fi
   const byeCount = alive.length === p ? 0 : 2 * p - alive.length;
   const byes = alive.slice(0, byeCount);
   const playing = alive.slice(byeCount);
-  const day = cupRoundDay(world, comp.round);
+  const day = cupDay(world, comp, comp.round);
   const fixtures: Fixture[] = [];
   for (let i = 0; i + 1 < playing.length; i += 2) {
-    fixtures.push({
-      id: nextId(world, 'f', 6),
-      competitionId: comp.id,
-      season: comp.season,
-      round: comp.round,
-      day,
-      homeClubId: playing[i],
-      awayClubId: playing[i + 1],
-      knockout: true,
-      played: false,
-      homeGoals: 0,
-      awayGoals: 0,
-      winnerId: null,
-      report: null,
-    });
+    fixtures.push(blankFixture(world, comp.id, comp.season, comp.round, day, playing[i], playing[i + 1], true, null));
   }
   return { fixtures, byes };
 }

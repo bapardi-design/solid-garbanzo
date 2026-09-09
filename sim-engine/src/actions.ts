@@ -5,7 +5,7 @@
 import type { Ctx } from './core/context.js';
 import { clamp } from './core/rng.js';
 import type { Club, Manager, Player, Tactic, TransferRecord } from './core/schema.js';
-import { contractOf, nextId, squad, tierOfClub } from './core/schema.js';
+import { contractOf, isRealWorld, nextId, squad, tierOfClub } from './core/schema.js';
 import { overall, playerValue, wageDemand, weeklyWageBill } from './rating.js';
 import { MAX_SQUAD, MIN_PER_POSITION, buildMarket, inTransferWindow, type Listing } from './engines/transfers.js';
 import { computeTable, positionOf } from './matchday/table.js';
@@ -80,7 +80,7 @@ export function marketForHuman(ctx: Ctx): MarketEntry[] {
 
 function askingWage(ctx: Ctx, l: Listing): number {
   const current = l.fromClubId ? contractOf(ctx.world, l.player.id)?.wage ?? 0 : 0;
-  return Math.round(Math.max(current, wageDemand(l.player)) * (l.fromClubId ? 1.1 : 1));
+  return Math.round(Math.max(current, wageDemand(l.player, isRealWorld(ctx.world))) * (l.fromClubId ? 1.1 : 1) * 10) / 10;
 }
 
 function record(ctx: Ctx, player: Player, fromClubId: string | null, toClubId: string, fee: number, kind: TransferRecord['kind']): TransferRecord {
@@ -148,7 +148,7 @@ export function renewalTerms(ctx: Ctx, playerId: string): RenewalTerms | null {
   const p = world.players[playerId];
   if (!club || !p || p.clubId !== club.id) return null;
   const c = contractOf(world, playerId);
-  const demand = Math.round(Math.max(c?.wage ?? 0, wageDemand(p)) * (1 + (50 - p.morale) / 250));
+  const demand = Math.round(Math.max(c?.wage ?? 0, wageDemand(p, isRealWorld(world))) * (1 + (50 - p.morale) / 250) * 10) / 10;
   const maxYears = p.age >= 33 ? 1 : p.age >= 30 ? 2 : 4;
   const willing = p.morale >= 30;
   return { wage: demand, maxYears, willing, note: willing ? `Wants ${demand}k a week, up to ${maxYears} season${maxYears === 1 ? '' : 's'}.` : `${p.name} is unhappy and will not talk terms yet.` };
@@ -228,5 +228,5 @@ export function jobOffers(ctx: Ctx): { club: Club; tier: number; strengthRank: n
   return out.sort((a, b) => a.tier - b.tier || a.strengthRank - b.strengthRank);
 }
 
-export function valueOf(p: Player): number { return playerValue(p); }
+export function valueOf(ctx: Ctx, p: Player): number { return playerValue(p, isRealWorld(ctx.world)); }
 export { contractLengthFor };

@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * sim run     --seasons 2 --seed abc --leagues 2 --clubs 12 --squad 24 [--out DIR] [--report FILE] [--explain N] [--quiet]
+ * sim run     --seasons 2 --seed abc [--world real|custom] [--nations ENG,ESP] [--no-continental] [--leagues 2 --clubs 12] [--squad 24] [--out DIR] [--report FILE] [--explain N] [--quiet]
  * sim verify  same flags; runs twice and compares end-of-season hashes
  * sim explain --seasons 1 ... --explain 5 ; prints goal factor breakdowns
  * sim resume  --from out/world_s2.json --seasons 2 [--out DIR] ; continue from a snapshot
  */
-import { DEFAULT_CONFIG, type WorldConfig } from '../core/schema.js';
+import { CUSTOM_CONFIG, DEFAULT_CONFIG, type WorldConfig } from '../core/schema.js';
 import { explainMatch } from '../matchday/match.js';
 import { computeTable } from '../matchday/table.js';
 import { runSeasons, type SeasonResult } from './runner.js';
@@ -38,8 +38,13 @@ function num(flags: Args['flags'], key: string, def: number): number {
 }
 
 export function configFromFlags(flags: Args['flags']): WorldConfig {
+  const custom = flags.world === 'custom' || typeof flags.leagues === 'string' || typeof flags.clubs === 'string';
+  const base = custom ? CUSTOM_CONFIG : DEFAULT_CONFIG;
   return {
+    ...base,
     seed: typeof flags.seed === 'string' ? flags.seed : DEFAULT_CONFIG.seed,
+    nations: typeof flags.nations === 'string' ? flags.nations.split(',').map((s) => s.trim().toUpperCase()) : base.nations,
+    continental: flags['no-continental'] ? false : base.continental,
     leagues: num(flags, 'leagues', DEFAULT_CONFIG.leagues),
     clubsPerLeague: num(flags, 'clubs', DEFAULT_CONFIG.clubsPerLeague),
     squadSize: num(flags, 'squad', DEFAULT_CONFIG.squadSize),

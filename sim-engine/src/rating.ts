@@ -32,16 +32,27 @@ export function ageFactor(age: number): number {
   return Math.max(0.15, 0.64 - (age - 31) * 0.14);
 }
 
-/** Market value in k. Cubic in rating so elite players are far more valuable. */
-export function playerValue(p: Player): number {
+/**
+ * Market value in k. The real-world model is steeply convex: a 90-rated star is
+ * worth about a hundred million while a lower-league regular is worth a few
+ * hundred thousand. The custom model is the gentler cubic the calibration
+ * tests were tuned against.
+ */
+export function playerValue(p: Player, real = false): number {
   const ovr = overall(p);
+  if (real) {
+    const base = Math.pow(ovr / 100, 8) * 230000;
+    const potentialBonus = p.age < 24 ? Math.max(0, p.potential - ovr) * Math.pow(ovr / 100, 5) * 2500 : 0;
+    return Math.max(50, Math.round((base + potentialBonus) * ageFactor(p.age)));
+  }
   const base = Math.pow(ovr / 100, 3) * 24000;
   const potentialBonus = p.age < 24 ? Math.max(0, p.potential - ovr) * 120 : 0;
   return Math.max(25, Math.round((base + potentialBonus) * ageFactor(p.age)));
 }
 
 /** Weekly wage a player expects, in k. */
-export function wageDemand(p: Player): number {
+export function wageDemand(p: Player, real = false): number {
+  if (real) return Math.max(0.5, Math.round(playerValue(p, true) * 0.004 * 10) / 10);
   const ovr = overall(p);
   return Math.max(1, Math.round(Math.pow(ovr / 100, 2.5) * 55 * (0.8 + 0.2 * ageFactor(p.age))));
 }

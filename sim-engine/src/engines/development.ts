@@ -1,7 +1,7 @@
 /** Player growth, decline, and valuation. */
 import type { Ctx } from '../core/context.js';
 import { clamp, round1 } from '../core/rng.js';
-import { ATTRIBUTE_KEYS, seasonDay, squad, type Attributes } from '../core/schema.js';
+import { ATTRIBUTE_KEYS, isRealWorld, seasonDay, squad, type Attributes } from '../core/schema.js';
 import { overall, playerValue } from '../rating.js';
 
 export function weeklyDevelopment(ctx: Ctx): void {
@@ -38,10 +38,11 @@ export function weeklyDevelopment(ctx: Ctx): void {
 export function revalue(ctx: Ctx): void {
   const { world } = ctx;
   const values: Record<string, number> = {};
+  const real = isRealWorld(world);
   for (const id in world.players) {
     const p = world.players[id];
     if (p.retired) continue;
-    const v = playerValue(p);
+    const v = playerValue(p, real);
     if (v !== p.value) values[id] = v;
   }
   if (Object.keys(values).length) ctx.emit('PLAYER_VALUED', { values });
