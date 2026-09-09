@@ -20,6 +20,7 @@ export function currencyFor(world: World, clubId: string | null): string {
 export function money(k: number, currency = '£'): string {
   const abs = Math.abs(k);
   const sign = k < 0 ? '-' : '';
+  if (abs >= 1000000) return `${sign}${currency}${(abs / 1000000).toFixed(1)}bn`;
   if (abs >= 1000) return `${sign}${currency}${(abs / 1000).toFixed(abs >= 10000 ? 0 : 1)}m`;
   return `${sign}${currency}${Math.round(abs)}k`;
 }

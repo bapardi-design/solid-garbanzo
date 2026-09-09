@@ -378,6 +378,7 @@ export function reduce(w: World, e: Event): void {
       m.unemployedSince = null;
       club.managerId = m.id;
       w.humanClubId = club.id;
+      w.humanManagerId = m.id;
       w.careerOver = null;
       break;
     }
@@ -390,7 +391,7 @@ export function reduce(w: World, e: Event): void {
       m.unemployedSince = null;
       m.contractEndSeason = e.payload.contractEndSeason;
       to.managerId = m.id;
-      if (w.humanClubId === e.payload.fromClubId || w.humanClubId === null) { w.humanClubId = to.id; w.careerOver = null; }
+      if (w.humanManagerId === m.id) { w.humanClubId = to.id; w.careerOver = null; }
       break;
     }
     case 'PLAYER_LISTED': {

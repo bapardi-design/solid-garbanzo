@@ -296,6 +296,8 @@ export interface World {
   idx: Indexes;
   /** Club controlled by a human manager, if any. */
   humanClubId: string | null;
+  /** The human's manager record, kept across sackings and moves. */
+  humanManagerId: string | null;
   /** Set when the human manager loses the job. */
   careerOver: { day: number; season: number; reason: string } | null;
 }
@@ -338,6 +340,7 @@ export function createEmptyWorld(config: WorldConfig): World {
     counters: {},
     idx: { squadByClub: {}, contractByPlayer: {}, fixturesByDay: {}, fixturesByCompetition: {} },
     humanClubId: null,
+    humanManagerId: null,
     careerOver: null,
   };
 }

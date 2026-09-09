@@ -190,11 +190,14 @@ function fillSquad(ctx: Ctx, club: Club, tier: number, nation: Nation, existing:
     const want = template.filter((t) => t === pos).length;
     for (let i = counts[pos]; i < want; i++) needed.push(pos);
   }
-  // Depth players sit below the listed stars.
+  // Depth players sit below the listed stars: never above the weakest real player.
   const depthRep = existing.length > 0 ? club.reputation * 0.82 : club.reputation;
+  const cap = existing.length > 0 ? Math.min(...existing.map((p) => overall(p))) - 1 : 99;
   for (const pos of needed) {
     const nat = pickNationality(nation.id, tier, rng, real);
-    signGenerated(ctx, generatePlayer(ctx, club.id, pos, depthRep, undefined, nat), club.id, real);
+    const player = generatePlayer(ctx, club.id, pos, depthRep, undefined, nat);
+    if (overall(player) > cap) { fitToOverall(player, cap - rng.int(0, 8)); assignPotential(player, rng, real); }
+    signGenerated(ctx, player, club.id, real);
   }
 }
 

@@ -10,7 +10,7 @@ export default function Home() {
             <p className="eyebrow">Football management, no download</p>
             <h1>Take the touchline. Keep your job.</h1>
             <p className="lede">
-              Pick a club in a two-division pyramid, set the tactics, work the transfer market, keep the wage bill honest, and give the board a reason not to sack you. Every season plays out in seconds, and the same seed always produces the same world.
+              Take over any of 246 real clubs across England&apos;s four divisions and the top two tiers of Spain, Germany, Italy and France. Real squads, a continental cup, domestic cups, a living transfer market with rumours and bids, minute-by-minute matches, and a board that will sack you. The same seed always produces the same world.
             </p>
             <div className="actions">
               <Link href="/play/new" className="btn primary">Start a career, free</Link>
@@ -22,9 +22,9 @@ export default function Home() {
             <h3>Finish where your squad says you should</h3>
             <p className="muted">Each pre-season the board ranks every squad in the division and sets your target. Fall five places short with poor form and you are gone. Beat it and the budget grows.</p>
             <ul className="muted" style={{ paddingLeft: 18, margin: 0 }}>
-              <li>Explainable results: every goal traces back to named factors</li>
-              <li>A live market: AI clubs buy, sell, loan and renew around you</li>
-              <li>Promotion, relegation and a national cup every season</li>
+              <li>Real leagues: Premier Division to League Two, plus Spain, Germany, Italy and France</li>
+              <li>A live market: rumours, bids for your players, deadline day, loans and renewals</li>
+              <li>Domestic cups, a league cup, and a 32-team continental cup with groups</li>
             </ul>
           </aside>
         </section>

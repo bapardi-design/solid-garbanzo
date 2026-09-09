@@ -190,9 +190,12 @@ export function boardStatus(ctx: Ctx): BoardStatus | null {
   const club = humanClub(ctx);
   if (!club) return null;
   const league = leagueOf(world, club.id);
-  const position = league ? positionOf(computeTable(world, league), club.id) : club.boardTarget;
+  const table = league ? computeTable(world, league) : [];
+  const position = league ? positionOf(table, club.id) : club.boardTarget;
   const formPoints = club.form.reduce((a, b) => a + b, 0);
-  const gap = position - club.boardTarget;
+  // Early-season positions mean little; the board waits for a body of results.
+  const played = table.find((r) => r.clubId === club.id)?.played ?? 0;
+  const gap = (position - club.boardTarget) * Math.min(1, played / 8);
   const mood = gap <= -2 ? 'delighted' : gap <= 2 ? 'content' : gap <= 5 ? 'concerned' : 'furious';
   const notes = {
     delighted: 'The board is delighted with progress.',
@@ -235,8 +238,8 @@ export interface Vacancy { club: Club; tier: number; reputation: number; interes
 /** Clubs without a manager that would consider the human, by reputation gap. */
 export function vacancies(ctx: Ctx): Vacancy[] {
   const { world } = ctx;
-  const humanId = world.humanClubId;
-  const manager = humanId ? world.managers[world.clubs[humanId].managerId ?? ''] : null;
+  const humanId = world.careerOver ? null : world.humanClubId;
+  const manager = world.humanManagerId ? world.managers[world.humanManagerId] : null;
   const rep = manager?.reputation ?? 40;
   const out: Vacancy[] = [];
   for (const club of Object.values(world.clubs)) {
@@ -254,9 +257,9 @@ export function acceptJob(ctx: Ctx, clubId: string): ActionResult {
   const { world, rng } = ctx;
   const v = vacancies(ctx).find((x) => x.club.id === clubId);
   if (!v) return fail('That job is not available.');
-  const humanId = world.humanClubId;
-  const managerId = humanId ? world.clubs[humanId].managerId : null;
-  if (!managerId) return fail('You are not managing a club.');
+  const managerId = world.humanManagerId;
+  const humanId = world.careerOver ? null : world.humanClubId;
+  if (!managerId) return fail('You have no manager profile yet.');
   if (v.interest === 'long shot' && !rng.chance(0.35)) return fail(`${v.club.name} went with another candidate.`);
   if (v.interest === 'open' && !rng.chance(0.75)) return fail(`${v.club.name} interviewed you but chose someone else.`);
   ctx.emit('MANAGER_MOVED', { managerId, fromClubId: humanId, toClubId: clubId, contractEndSeason: world.season + 2 });

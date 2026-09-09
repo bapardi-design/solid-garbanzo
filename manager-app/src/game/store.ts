@@ -12,7 +12,10 @@ export interface CareerSummary {
   position: number;
   balance: number;
   careerOver: boolean;
-  /** Recent inbox items and the fixture ids of the last matchday, restored on load. */
+  nationId?: string;
+  leagueName?: string;
+  world?: 'real' | 'custom';
+  /** Legacy fields from saves made before news lived in the world. */
   inbox?: InboxItem[];
   lastResults?: string[];
 }
