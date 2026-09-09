@@ -184,6 +184,7 @@ export function SquadPanel({ game, clubId, onAction }: { game: GameT; clubId: st
 export function MarketPanel({ game, clubId, onAction }: { game: GameT; clubId: string; onAction: Action }) {
   const { world, ctx } = game;
   const [years, setYears] = useState(3);
+  const [premium, setPremium] = useState(0);
   const [pos, setPos] = useState<'ALL' | Player['position']>('ALL');
   const [onlyAffordable, setOnlyAffordable] = useState(true);
   const entries = useMemo(() => Engine.marketForHuman(ctx), [ctx, world.day, world.clubs[clubId].transferBudget]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -198,6 +199,7 @@ export function MarketPanel({ game, clubId, onAction }: { game: GameT; clubId: s
       <div className="body form-row">
         <div className="field"><label htmlFor="pos">Position</label><select id="pos" value={pos} onChange={(e) => setPos(e.target.value as typeof pos)}><option value="ALL">All</option><option>GK</option><option>DF</option><option>MF</option><option>FW</option></select></div>
         <div className="field"><label htmlFor="years">Contract years</label><select id="years" value={years} onChange={(e) => setYears(Number(e.target.value))}>{[1, 2, 3, 4, 5].map((y) => <option key={y} value={y}>{y}</option>)}</select></div>
+        <div className="field"><label htmlFor="premium">Offer</label><select id="premium" value={premium} onChange={(e) => setPremium(Number(e.target.value))}><option value={0}>Asking price</option><option value={10}>Asking +10% (more likely to accept)</option><option value={25}>Asking +25%</option></select></div>
         <label className="muted"><input type="checkbox" checked={onlyAffordable} onChange={(e) => setOnlyAffordable(e.target.checked)} /> Affordable only</label>
       </div>
       <div className="scroll">
@@ -214,7 +216,7 @@ export function MarketPanel({ game, clubId, onAction }: { game: GameT; clubId: s
                 <td className="num">{e.player.potential}</td>
                 <td className="num">{e.askingPrice ? money(e.askingPrice) : 'free'}</td>
                 <td className="num">{wage(e.wage)}</td>
-                <td>{e.affordable ? <button className="btn small primary" onClick={() => onAction(Engine.bidForPlayer(ctx, e.player.id, years))}>Bid</button> : <span className="muted">{e.reason}</span>}</td>
+                <td>{e.affordable ? <button className="btn small primary" onClick={() => onAction(Engine.bidForPlayer(ctx, e.player.id, years, Math.round(e.askingPrice * (1 + premium / 100))))}>Bid{premium ? ` ${money(Math.round(e.askingPrice * (1 + premium / 100)))}` : ''}</button> : <span className="muted">{e.reason}</span>}</td>
               </tr>
             ))}
           </tbody>
