@@ -318,3 +318,23 @@ test('a top-flight club does not simply bank its income', async () => {
   assert.ok(wages / income > 0.35 && wages / income < 0.75, `wages are ${(100 * wages / income).toFixed(0)}% of income`);
   assert.ok(net / income < 0.3, `the division keeps ${(100 * net / income).toFixed(0)}% of what it earns`);
 });
+
+test('squads do not waste away over a career', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const { DEFAULT_CONFIG, squad } = await import('../core/schema.js');
+  const game = createGame({ ...DEFAULT_CONFIG, seed: 'demography', nations: ['ENG', 'ESP'] });
+  const sizes: number[] = [];
+  for (let season = 0; season < 4; season++) {
+    for (let d = 0; d < 400; d++) {
+      step(game, 1);
+      if (game.world.day % game.world.seasonLength === game.world.seasonLength - 1) break;
+    }
+    const all = Object.values(game.world.clubs).map((c) => squad(game.world, c.id).length);
+    sizes.push(all.reduce((a, b) => a + b, 0) / all.length);
+    step(game, 1);
+  }
+  // Youth intakes have to replace what age takes out. When they did not, clubs
+  // lost a player a season until they were naming sixteen-man matchday squads.
+  assert.ok(sizes[3] > sizes[0] - 3, `squads went ${sizes.map((s) => s.toFixed(1)).join(' → ')}`);
+  assert.ok(sizes[3] > 18, `squads ended at ${sizes[3].toFixed(1)}`);
+});
