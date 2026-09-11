@@ -20,13 +20,21 @@ const REAL_TICKET_CONTINENTAL = 0.06;
 /** Weekly commercial and broadcast income, in k. */
 export function weeklyCommercial(world: World, reputation: number): number {
   if (!isRealWorld(world)) return Math.round(reputation * SPONSOR_PER_REP_WEEKLY);
-  return Math.round(Math.pow(reputation / 100, 4) * 5500);
+  // Commercial income only: the television money arrives as prize money. A
+  // mid-table top-flight club should see forty million a year here, not a
+  // hundred, or it out-earns its wage bill and banks the difference forever.
+  // The curve is steep at the top; the linear term is the shirt sponsor and
+  // the local trade that even a fourth-tier club sells.
+  return Math.round(Math.pow(reputation / 100, 4) * 2000 + reputation * 0.8);
 }
 
 /** Weekly running costs, in k. */
 export function weeklyOperations(world: World, reputation: number): number {
   if (!isRealWorld(world)) return Math.round(reputation * OPERATIONS_PER_REP_WEEKLY);
-  return Math.round(Math.pow(reputation / 100, 3) * 1500 + 30);
+  // Costs follow the same curve as income. On a shallower one a big club's
+  // revenue outruns its running costs and it simply banks the difference
+  // season after season, which is not how a football club works.
+  return Math.round(Math.pow(reputation / 100, 4) * 2600 + 15);
 }
 
 export function weeklyFinance(ctx: Ctx): void {
@@ -71,12 +79,12 @@ export function prizeMoney(comp: CompetitionLeague, table: Standing[]): FinanceE
 
 export function cupPrize(world: World, comp: CompetitionCup, clubId: string, round: number): FinanceEntry {
   if (!isRealWorld(world)) return { clubId, category: 'cup', amount: 150 * round * round };
-  const amount = comp.cupKind === 'continental' ? 10000 + 3000 * round : comp.cupKind === 'leagueCup' ? 100 * round * round : 200 * round * round;
+  const amount = comp.cupKind === 'continental' ? 6000 + 1500 * round : comp.cupKind === 'leagueCup' ? 60 * round * round : 120 * round * round;
   return { clubId, category: 'cup', amount };
 }
 
 /** Paid to every club entering the continental group stage. */
-export function continentalEntryFee(world: World): number { return isRealWorld(world) ? 15000 : 800; }
+export function continentalEntryFee(world: World): number { return isRealWorld(world) ? 9000 : 800; }
 export function groupWinBonus(world: World): number { return isRealWorld(world) ? 2000 : 100; }
 
 /** Projected season income used to size wage and transfer budgets. */
