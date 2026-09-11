@@ -314,23 +314,31 @@ export function simulateFirstHalf(ctx: Ctx, fixture: Fixture, clubId: string): H
   };
 }
 
-/** Rebuilds a selection from stored ids so the second half continues the first. */
-function selectionFromIds(world: World, ids: string[], formation: string, tactic: Tactic): Selection {
+/**
+ * Rebuilds a selection from stored ids so the second half continues the first.
+ * Same rules as `selectXI`, with the pool restricted to the eleven who started,
+ * which puts every player back in the slot they were picked for.
+ */
+export function selectionFromIds(world: World, ids: string[], formation: string, tactic: Tactic): Selection {
   const slots = FORMATIONS[tactic].slots;
+  const pool = ids.map((id) => world.players[id]).filter(Boolean);
+  const taken = new Set<string>();
   const byPos: Selection['byPos'] = { GK: [], DF: [], MF: [], FW: [] };
-  const left = [...ids];
+  const ranked = (candidates: Player[], pos: Position) => candidates
+    .map((p) => ({ playerId: p.id, rating: effectiveRating(p, pos) }))
+    .sort((a, b) => b.rating - a.rating || a.playerId.localeCompare(b.playerId));
   for (const pos of ['GK', 'DF', 'MF', 'FW'] as const) {
-    const want = slots[pos];
-    const natural = left.filter((id) => world.players[id]?.position === pos);
-    for (const id of natural.slice(0, want)) {
-      byPos[pos].push({ playerId: id, rating: effectiveRating(world.players[id], pos) });
-      left.splice(left.indexOf(id), 1);
+    for (const c of ranked(pool.filter((p) => p.position === pos && !taken.has(p.id)), pos).slice(0, slots[pos])) {
+      byPos[pos].push(c);
+      taken.add(c.playerId);
     }
   }
   for (const pos of ['GK', 'DF', 'MF', 'FW'] as const) {
-    while (byPos[pos].length < slots[pos] && left.length) {
-      const id = left.shift() as string;
-      byPos[pos].push({ playerId: id, rating: effectiveRating(world.players[id], pos) });
+    while (byPos[pos].length < slots[pos]) {
+      const next = ranked(pool.filter((p) => !taken.has(p.id)), pos)[0];
+      if (!next) break;
+      byPos[pos].push(next);
+      taken.add(next.playerId);
     }
   }
   return { formation, playerIds: [...ids], byPos };

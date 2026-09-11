@@ -137,3 +137,17 @@ test('a save written before half-time existed still loads and replays', async ()
   step(restored, 5);
   assert.deepEqual(checkInvariants(restored.world), []);
 });
+
+test('the second-half eleven is rebuilt into the same slots it started in', async () => {
+  const { createGame } = await import('../browser/engine.js');
+  const { selectXI } = await import('../matchday/xi.js');
+  const { selectionFromIds } = await import('../matchday/match.js');
+  const game = createGame({ ...small, seed: 'rebuild' });
+  const world = game.world;
+  for (const clubId of Object.keys(world.clubs)) {
+    for (const tactic of ['balanced', 'attacking', 'defensive'] as const) {
+      const sel = selectXI(world, clubId, tactic);
+      assert.deepEqual(selectionFromIds(world, sel.playerIds, sel.formation, tactic), sel, `${clubId} ${tactic}`);
+    }
+  }
+});
