@@ -92,7 +92,10 @@ export function startSeason(ctx: Ctx, season: number): void {
     const academy = academyBonus(world, club.id);
     const intake = rng.int(2, 3) + (academy >= 5 ? 1 : 0);
     for (let i = 0; i < intake; i++) {
-      const pos = rng.pick(['GK', 'DF', 'DF', 'MF', 'MF', 'FW'] as const satisfies readonly Position[]);
+      // In the shape of a real squad: one keeper for every two forwards. An
+      // even split floods the world with keepers who never get a game and
+      // starves it of forwards.
+      const pos = rng.weighted(['GK', 'DF', 'MF', 'FW'] as const satisfies readonly Position[], [3, 8, 8, 6]);
       const player = generatePlayer(ctx, club.id, pos, club.reputation * 0.8 + academy, rng.int(16, 18), club.nationId);
       ctx.emit('PLAYER_CREATED', { player });
       const contract = makeContract(ctx, player.id, club.id, wageDemand(player, real), contractLengthFor(player.age, rng));
@@ -276,7 +279,9 @@ export function endSeason(ctx: Ctx): void {
     if (p.retired) continue;
     const unattachedFor = p.freeSince === null ? 0 : world.day - p.freeSince;
     const freeAgentTooLong = p.clubId === null && (p.age >= 31 || unattachedFor >= world.seasonLength);
-    const retireChance = p.age >= 33 ? (p.age - 32) * 0.3 : 0;
+    // Goalkeepers last: they peak late and play on into their late thirties.
+    const retireFrom = p.position === 'GK' ? 36 : 33;
+    const retireChance = p.age >= retireFrom ? (p.age - retireFrom + 1) * 0.3 : 0;
     if (retireChance > 0 && rng.chance(retireChance)) {
       ctx.emit('PLAYER_RETIRED', { playerId: p.id, clubId: p.clubId, reason: 'age' });
     } else if (freeAgentTooLong) {

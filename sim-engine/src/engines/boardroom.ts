@@ -8,6 +8,7 @@ import type { Ctx } from '../core/context.js';
 import type { FinanceEntry } from '../core/events.js';
 import type { Boardroom, Decision, DecisionOption, Facilities, Project, World } from '../core/schema.js';
 import { isRealWorld, nextId, seasonDay } from '../core/schema.js';
+import { clamp } from '../core/rng.js';
 import { weeklyCommercial } from './finance.js';
 import { currencyFor, money } from './press.js';
 
@@ -90,8 +91,13 @@ const sponsorDeal: Gen = (ctx, b, bank) => {
 const standWork: Gen = (ctx, b, bank) => {
   if (b.facilities.stadium >= MAX_LEVEL) return null;
   if (b.projects.some((p) => p.upgrade === 'stadium')) return null;
-  const seats = Math.round(2500 + ctx.rng.int(0, 4) * 1500);
-  const cost = Math.round(seats * (isRealWorld(ctx.world) ? 9 : 3) * (1 + bank * 0.02));
+  // A stand in proportion to the ground, priced per seat. The bank is in
+  // thousands, so the old multiplier on it turned any healthy balance into a
+  // stand nobody could pay for; the board only proposes what the club can fund.
+  const capacity = ctx.world.clubs[b.clubId].stadiumCapacity;
+  const seats = Math.round(clamp(capacity * ctx.rng.float(0.05, 0.12), 600, 9000) / 100) * 100;
+  const cost = Math.round(seats * (isRealWorld(ctx.world) ? 5 : 2));
+  if (bank < cost) return null;
   return decision(ctx, {
     kind: 'stadium',
     title: 'Plans for the east stand',
