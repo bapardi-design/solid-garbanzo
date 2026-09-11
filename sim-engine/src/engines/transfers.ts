@@ -6,6 +6,7 @@ import { overall, wageDemand, weeklyWageBill } from '../rating.js';
 import { FORMATIONS } from '../matchday/xi.js';
 import { contractLengthFor, makeContract } from '../world/generate.js';
 import { aiBidsForHuman } from './bids.js';
+import { clamp } from '../core/rng.js';
 
 export const SUMMER_WINDOW: [number, number] = [0, 27];
 export const WINTER_WINDOW: [number, number] = [168, 195];
@@ -162,9 +163,14 @@ export function runTransferDay(ctx: Ctx): void {
         .sort((a, b) => b.score - a.score || a.l.player.id.localeCompare(b.l.player.id));
       if (candidates.length === 0) continue;
       const choice = candidates[Math.min(candidates.length - 1, rng.int(0, 2))];
-      // Negotiations can fail; players prefer bigger clubs.
+      // Negotiations can fail; players prefer bigger clubs, and a good one
+      // does not drop a division to sit in a worse side. Without the second
+      // term the best players drained downwards every season and the
+      // divisions converged on each other.
       const repGap = club.reputation - (choice.l.fromClubId ? world.clubs[choice.l.fromClubId].reputation : club.reputation);
-      if (!rng.chance(0.75 + repGap / 200)) continue;
+      const standard = overall(choice.l.player) - (lineCache.get(club.leagueId)![need.pos] ?? 50);
+      const tooGoodForUs = standard > 0 ? standard / 45 : 0;
+      if (!rng.chance(clamp(0.75 + repGap / 200 - tooGoodForUs, 0.05, 0.97))) continue;
       const { player } = choice.l;
       const fee = choice.l.askingPrice;
       const contract = makeContract(ctx, player.id, clubId, choice.wage, contractLengthFor(player.age, rng));
