@@ -186,7 +186,14 @@ function matchNews(ctx: Ctx, events: Event[]): Draft[] {
     const won = mine.winnerId === us.id;
     const drew = mine.winnerId === null;
     const scorers = mine.report.goals.map((g) => `${world.players[g.scorerId].name} ${g.minute}'${g.clubId === home.id ? '' : ' (a)'}`).join(', ');
-    drafts.push({ category: 'match', headline: `${home.name} ${mine.homeGoals}-${mine.awayGoals} ${away.name}: ${won ? `${us.short} ${mine.knockout ? 'go through' : 'take the points'}` : drew ? 'honours even' : `${us.short} beaten`}`, body: `${competitionName(world, mine.competitionId)}, attendance ${mine.report.attendance.toLocaleString('en-GB')}.\nScorers: ${scorers || 'none'}.\nExpected goals: ${home.short} ${mine.report.lambda.home.toFixed(2)}, ${away.short} ${mine.report.lambda.away.toFixed(2)}.`, clubIds: [us.id] });
+    const off = mine.report.cards.filter((c) => c.kind !== 'yellow');
+    const discipline = off.length
+      ? `\nSent off: ${off.map((c) => `${world.players[c.playerId]?.name ?? c.playerId} (${world.clubs[c.clubId].short}, ${c.minute}') — ${c.ban} match ban`).join(', ')}.`
+      : '';
+    const ours = mine.report.cards.filter((c) => c.clubId === us.id && c.kind === 'yellow').length;
+    const bookings = ours ? `\nBookings: ${ours} for ${us.short}.` : '';
+    const derby = mine.report.derby ? `${world.clubs[mine.homeClubId].city} derby. ` : '';
+    drafts.push({ category: 'match', headline: `${home.name} ${mine.homeGoals}-${mine.awayGoals} ${away.name}: ${won ? `${us.short} ${mine.knockout ? 'go through' : 'take the points'}` : drew ? 'honours even' : `${us.short} beaten`}`, body: `${derby}${competitionName(world, mine.competitionId)}, attendance ${mine.report.attendance.toLocaleString('en-GB')}.\nScorers: ${scorers || 'none'}.${discipline}${bookings}\nExpected goals: ${home.short} ${mine.report.lambda.home.toFixed(2)}, ${away.short} ${mine.report.lambda.away.toFixed(2)}.`, clubIds: [us.id] });
   }
   // Cup winners come from events: the rounds advance after the day's matches,
   // so these are always in hand, pause or no pause.

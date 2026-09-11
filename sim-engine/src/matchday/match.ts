@@ -7,7 +7,7 @@
 import type { Ctx } from '../core/context.js';
 import type { PlayerMatchStats } from '../core/events.js';
 import { clamp } from '../core/rng.js';
-import type { Fixture, GoalEvent, GoalFactor, HalfTimeState, MatchReport, Player, Position, Tactic, World } from '../core/schema.js';
+import type { CardEvent, Fixture, GoalEvent, GoalFactor, HalfTimeState, MatchReport, Player, Position, Tactic, World } from '../core/schema.js';
 import { effectiveRating } from '../rating.js';
 import { attendanceFactor, medicalFactor, recoveryFactor } from '../engines/boardroom.js';
 import { FORMATIONS, selectXI, type Selection } from './xi.js';
@@ -19,6 +19,23 @@ const STRENGTH_EXPONENT = 1.7;
 const MIN_XG = 0.25;
 const MAX_XG = 4.5;
 const INJURY_CHANCE = 0.012;
+/** Bookings per side per match, near the real rate of about two. */
+const YELLOW_RATE = 1.9;
+/** Of all bookings, this share is a straight red. Real football sits near one in twenty matches. */
+const RED_SHARE = 0.016;
+/** A booked player is careful, and his manager is watching: he is far less likely to be the next one. */
+const BOOKED_AGAIN = 0.10;
+/** What a side is worth once it is down to ten. */
+const TEN_MEN = 0.72;
+const TEN_MEN_AGAINST = 1.14;
+/** How likely each line is to be booked. */
+const CARD_WEIGHT: Record<Position, number> = { GK: 0.25, DF: 1.35, MF: 1.5, FW: 0.9 };
+
+/** Two clubs from the same city. */
+export function isDerby(world: World, fixture: Fixture): boolean {
+  const h = world.clubs[fixture.homeClubId], a = world.clubs[fixture.awayClubId];
+  return Boolean(h && a && h.city && a.city && h.city === a.city);
+}
 
 export interface TeamLines { gk: number; def: number; mid: number; att: number; morale: number; }
 
@@ -38,6 +55,8 @@ export interface SideInput {
   managerAbility: number;
   form: number;
   home: boolean;
+  /** A meeting with the neighbours: the home ground counts for less. */
+  derby?: boolean;
 }
 
 /** Expected goals for `us` against `them`, with the factor breakdown. */
@@ -63,6 +82,11 @@ export function expectedGoals(us: SideInput, them: SideInput): { lambda: number;
   const form = 1 + ((us.form - 1.4) / 3) * 0.05;
   factors.push({ name: 'form', multiplier: form, note: `${us.form.toFixed(2)} pts/game recently` });
 
+  if (us.derby) {
+    const derby = us.home ? 0.96 : 1.07;
+    factors.push({ name: 'derby', multiplier: derby, note: us.home ? 'the neighbours are not overawed' : 'nothing to lose at their place' });
+  }
+
   let lambda = 1;
   for (const f of factors) lambda *= f.multiplier;
   return { lambda: clamp(lambda, MIN_XG, MAX_XG), factors };
@@ -70,9 +94,10 @@ export function expectedGoals(us: SideInput, them: SideInput): { lambda: number;
 
 const SCORER_WEIGHT: Record<Position, number> = { GK: 0.01, DF: 0.12, MF: 0.32, FW: 0.55 };
 
-function pickScorer(ctx: Ctx, sel: Selection): { scorerId: string; assistId: string | null } {
+function pickScorer(ctx: Ctx, sel: Selection, off: Set<string> = new Set()): { scorerId: string; assistId: string | null } {
   const { world, rng } = ctx;
-  const ids = sel.playerIds;
+  const left = sel.playerIds.filter((id) => !off.has(id));
+  const ids = left.length ? left : sel.playerIds;
   const weights = ids.map((id) => {
     const p = world.players[id];
     const slot = (Object.keys(sel.byPos) as Position[]).find((pos) => sel.byPos[pos].some((x) => x.playerId === id)) ?? p.position;
@@ -101,7 +126,8 @@ function managerAbility(world: World, clubId: string): number {
 export function attendanceFor(world: World, fixture: Fixture): number {
   const home = world.clubs[fixture.homeClubId];
   const away = world.clubs[fixture.awayClubId];
-  const interest = (0.45 + home.reputation / 200 + away.reputation / 500 + (clubForm(world, home.id) - 1.4) * 0.05) * attendanceFactor(world, home.id);
+  const derby = isDerby(world, fixture) ? 1.12 : 1;
+  const interest = (0.45 + home.reputation / 200 + away.reputation / 500 + (clubForm(world, home.id) - 1.4) * 0.05) * attendanceFactor(world, home.id) * derby;
   return Math.round(home.stadiumCapacity * clamp(interest, 0.22, 1));
 }
 
@@ -122,8 +148,8 @@ export interface HalfTimeDecision {
 
 export const MAX_SUBS = 3;
 
-function sideInput(world: World, clubId: string, sel: Selection, tactic: Tactic, home: boolean): SideInput {
-  return { clubId, lines: teamLines(world, sel), tactic, managerAbility: managerAbility(world, clubId), form: clubForm(world, clubId), home };
+function sideInput(world: World, clubId: string, sel: Selection, tactic: Tactic, home: boolean, derby = false): SideInput {
+  return { clubId, lines: teamLines(world, sel), tactic, managerAbility: managerAbility(world, clubId), form: clubForm(world, clubId), home, derby };
 }
 
 /** Position slot a player occupies in a selection. */
@@ -142,7 +168,7 @@ export function applySubs(world: World, sel: Selection, subs: { offId: string; o
   for (const { offId, onId } of subs) {
     if (applied.length >= MAX_SUBS) break;
     const on = world.players[onId];
-    if (!on || on.retired || on.injuryDays > 0) continue;
+    if (!on || on.retired || on.injuryDays > 0 || on.suspension > 0) continue;
     if (next.playerIds.includes(onId)) continue;
     const pos = slotOf(next, offId);
     if (!pos) continue;
@@ -154,11 +180,61 @@ export function applySubs(world: World, sel: Selection, subs: { offId: string; o
   return { sel: next, applied };
 }
 
+/**
+ * Bookings for one side in one half. A second yellow for a player already
+ * carrying one is a sending-off, as is a straight red; both earn a ban.
+ */
+function halfCards(ctx: Ctx, sel: Selection, clubId: string, from: number, to: number, booked: Set<string>, sentOff: Set<string>, derby: boolean): CardEvent[] {
+  const { world, rng } = ctx;
+  const out: CardEvent[] = [];
+  const n = rng.poisson((YELLOW_RATE / 2) * (derby ? 1.35 : 1));
+  // Minutes in order, so a player sent off cannot be booked later in the half.
+  const minutes = Array.from({ length: n }, () => rng.int(from, to)).sort((a, b) => a - b);
+  for (const minute of minutes) {
+    // Anyone already off cannot be booked again.
+    const ids = sel.playerIds.filter((id) => !sentOff.has(id));
+    if (ids.length === 0) break;
+    const weights = ids.map((id) => CARD_WEIGHT[world.players[id]?.position ?? 'MF'] * (booked.has(id) ? BOOKED_AGAIN : 1));
+    const playerId = rng.weighted(ids, weights);
+    if (booked.has(playerId)) {
+      out.push({ minute, clubId, playerId, kind: 'second', ban: 1 });
+      booked.delete(playerId);
+      sentOff.add(playerId);
+    } else if (rng.chance(RED_SHARE)) {
+      out.push({ minute, clubId, playerId, kind: 'red', ban: rng.int(2, 3) });
+      sentOff.add(playerId);
+    } else {
+      out.push({ minute, clubId, playerId, kind: 'yellow', ban: 0 });
+      booked.add(playerId);
+    }
+  }
+  return out.sort((a, b) => a.minute - b.minute);
+}
+
+/** What a side's attack is worth over a half, given anyone sent off. */
+function manpower(cards: CardEvent[], clubId: string, from: number, to: number): { mine: number; theirs: number } {
+  const span = to - from + 1;
+  let mine = 1, theirs = 1;
+  for (const c of cards) {
+    if (c.kind === 'yellow') continue;
+    const off = Math.max(from, c.minute);
+    const share = Math.max(0, to - off) / span;
+    if (c.clubId === clubId) { mine *= 1 - (1 - TEN_MEN) * share; theirs *= 1 + (TEN_MEN_AGAINST - 1) * share; }
+  }
+  return { mine, theirs };
+}
+
 /** Goals scored in one half by one side: a Poisson draw on half the match rate. */
-function halfGoals(ctx: Ctx, lambda: number, count: number, sel: Selection, clubId: string, from: number, to: number): GoalEvent[] {
+function halfGoals(ctx: Ctx, lambda: number, count: number, sel: Selection, clubId: string, from: number, to: number, cards: CardEvent[] = []): GoalEvent[] {
   void lambda;
+  const sentOff = cards.filter((c) => c.clubId === clubId && c.kind !== 'yellow');
   const out: GoalEvent[] = [];
-  for (let i = 0; i < count; i++) out.push({ minute: ctx.rng.int(from, to), clubId, ...pickScorer(ctx, sel) });
+  for (let i = 0; i < count; i++) {
+    const minute = ctx.rng.int(from, to);
+    // A man already off cannot score.
+    const off = new Set(sentOff.filter((c) => c.minute <= minute).map((c) => c.playerId));
+    out.push({ minute, clubId, ...pickScorer(ctx, sel, off) });
+  }
   return out;
 }
 
@@ -174,6 +250,8 @@ interface Settlement {
   subs: MatchReport['subs'];
   tacticChange: MatchReport['tacticChange'];
   attendance: number;
+  cards: CardEvent[];
+  derby: boolean;
 }
 
 /** Penalties, player stats, injuries and the report, once both halves are played. */
@@ -209,6 +287,9 @@ function settle(ctx: Ctx, s: Settlement): MatchOutcome {
       if ((p.position === 'GK' || p.position === 'DF') && goalsAgainst === 0 && minutes === 90) rating += 0.6;
       rating -= goalsAgainst * 0.12;
       rating += (goalsFor - goalsAgainst) * 0.15;
+      const own = s.cards.filter((c) => c.playerId === id);
+      rating -= own.filter((c) => c.kind === 'yellow').length * 0.25;
+      rating -= own.some((c) => c.kind !== 'yellow') ? 1.4 : 0;
       rating += rng.normal(0, 0.35);
       playerStats[id] = {
         minutes,
@@ -235,8 +316,10 @@ function settle(ctx: Ctx, s: Settlement): MatchOutcome {
     factors: { home: s.xgHome.factors, away: s.xgAway.factors },
     second: s.second,
     goals: s.goals,
+    cards: s.cards,
     penalties,
     attendance: s.attendance,
+    derby: s.derby,
     halfTimeScore: s.htScore,
     subs: s.subs,
     tacticChange: s.tacticChange,
@@ -244,32 +327,54 @@ function settle(ctx: Ctx, s: Settlement): MatchOutcome {
   return { homeGoals, awayGoals, winnerId, report, playerStats, injuries };
 }
 
+/** The same side minus anyone sent off, so ten men really are ten men. */
+function elevenLeft(world: World, sel: Selection, off: Set<string>, tactic: Tactic): Selection {
+  if (off.size === 0) return sel;
+  return selectionFromIds(world, sel.playerIds.filter((id) => !off.has(id)), sel.formation, tactic);
+}
+
 /** Plays the whole match in one pass: both halves on the same basis. */
 export function simulateMatch(ctx: Ctx, fixture: Fixture): MatchOutcome {
   const { world, rng } = ctx;
   const homeClub = world.clubs[fixture.homeClubId];
   const awayClub = world.clubs[fixture.awayClubId];
+  const derby = isDerby(world, fixture);
   const homeSel = selectXI(world, homeClub.id, homeClub.tactic);
   const awaySel = selectXI(world, awayClub.id, awayClub.tactic);
-  const homeSide = sideInput(world, homeClub.id, homeSel, homeClub.tactic, true);
-  const awaySide = sideInput(world, awayClub.id, awaySel, awayClub.tactic, false);
+  const homeSide = sideInput(world, homeClub.id, homeSel, homeClub.tactic, true, derby);
+  const awaySide = sideInput(world, awayClub.id, awaySel, awayClub.tactic, false, derby);
   const xgHome = expectedGoals(homeSide, awaySide);
   const xgAway = expectedGoals(awaySide, homeSide);
 
   const goals: GoalEvent[] = [];
+  const cards: CardEvent[] = [];
+  const booked = { home: new Set<string>(), away: new Set<string>() };
+  const off = { home: new Set<string>(), away: new Set<string>() };
+  // The second half is played by whoever is still on the pitch.
+  let homeSel2 = homeSel, awaySel2 = awaySel;
   let htHome = 0, htAway = 0;
   for (const [from, to] of [[1, 45], [46, 90]] as const) {
-    const h = rng.poisson(xgHome.lambda / 2);
-    const a = rng.poisson(xgAway.lambda / 2);
-    goals.push(...halfGoals(ctx, xgHome.lambda, h, homeSel, homeClub.id, from, to));
-    goals.push(...halfGoals(ctx, xgAway.lambda, a, awaySel, awayClub.id, from, to));
-    if (from === 1) { htHome = h; htAway = a; }
+    const hs = from === 1 ? homeSel : homeSel2, as = from === 1 ? awaySel : awaySel2;
+    cards.push(...halfCards(ctx, hs, homeClub.id, from, to, booked.home, off.home, derby));
+    cards.push(...halfCards(ctx, as, awayClub.id, from, to, booked.away, off.away, derby));
+    const mpHome = manpower(cards, homeClub.id, from, to);
+    const mpAway = manpower(cards, awayClub.id, from, to);
+    const h = rng.poisson((xgHome.lambda / 2) * mpHome.mine * mpAway.theirs);
+    const a = rng.poisson((xgAway.lambda / 2) * mpAway.mine * mpHome.theirs);
+    goals.push(...halfGoals(ctx, xgHome.lambda, h, hs, homeClub.id, from, to, cards));
+    goals.push(...halfGoals(ctx, xgAway.lambda, a, as, awayClub.id, from, to, cards));
+    if (from === 1) {
+      htHome = h; htAway = a;
+      homeSel2 = elevenLeft(world, homeSel, off.home, homeClub.tactic);
+      awaySel2 = elevenLeft(world, awaySel, off.away, awayClub.tactic);
+    }
   }
   goals.sort((a, b) => a.minute - b.minute || a.clubId.localeCompare(b.clubId));
+  cards.sort((a, b) => a.minute - b.minute || a.clubId.localeCompare(b.clubId));
 
   return settle(ctx, {
     fixture,
-    homeSel1: homeSel, awaySel1: awaySel, homeSel2: homeSel, awaySel2: awaySel,
+    homeSel1: homeSel, awaySel1: awaySel, homeSel2, awaySel2,
     goals,
     htScore: { home: htHome, away: htAway },
     xgHome, xgAway,
@@ -277,6 +382,8 @@ export function simulateMatch(ctx: Ctx, fixture: Fixture): MatchOutcome {
     subs: [],
     tacticChange: null,
     attendance: attendanceFor(world, fixture),
+    cards,
+    derby,
   });
 }
 
@@ -285,18 +392,27 @@ export function simulateFirstHalf(ctx: Ctx, fixture: Fixture, clubId: string): H
   const { world, rng } = ctx;
   const homeClub = world.clubs[fixture.homeClubId];
   const awayClub = world.clubs[fixture.awayClubId];
+  const derby = isDerby(world, fixture);
   const homeSel = selectXI(world, homeClub.id, homeClub.tactic);
   const awaySel = selectXI(world, awayClub.id, awayClub.tactic);
-  const homeSide = sideInput(world, homeClub.id, homeSel, homeClub.tactic, true);
-  const awaySide = sideInput(world, awayClub.id, awaySel, awayClub.tactic, false);
+  const homeSide = sideInput(world, homeClub.id, homeSel, homeClub.tactic, true, derby);
+  const awaySide = sideInput(world, awayClub.id, awaySel, awayClub.tactic, false, derby);
   const xgHome = expectedGoals(homeSide, awaySide);
   const xgAway = expectedGoals(awaySide, homeSide);
 
-  const h = rng.poisson(xgHome.lambda / 2);
-  const a = rng.poisson(xgAway.lambda / 2);
+  const bookedHome = new Set<string>(), bookedAway = new Set<string>();
+  const offHome = new Set<string>(), offAway = new Set<string>();
+  const cards = [
+    ...halfCards(ctx, homeSel, homeClub.id, 1, 45, bookedHome, offHome, derby),
+    ...halfCards(ctx, awaySel, awayClub.id, 1, 45, bookedAway, offAway, derby),
+  ].sort((x, y) => x.minute - y.minute || x.clubId.localeCompare(y.clubId));
+  const mpHome = manpower(cards, homeClub.id, 1, 45);
+  const mpAway = manpower(cards, awayClub.id, 1, 45);
+  const h = rng.poisson((xgHome.lambda / 2) * mpHome.mine * mpAway.theirs);
+  const a = rng.poisson((xgAway.lambda / 2) * mpAway.mine * mpHome.theirs);
   const goals = [
-    ...halfGoals(ctx, xgHome.lambda, h, homeSel, homeClub.id, 1, 45),
-    ...halfGoals(ctx, xgAway.lambda, a, awaySel, awayClub.id, 1, 45),
+    ...halfGoals(ctx, xgHome.lambda, h, homeSel, homeClub.id, 1, 45, cards),
+    ...halfGoals(ctx, xgAway.lambda, a, awaySel, awayClub.id, 1, 45, cards),
   ].sort((x, y) => x.minute - y.minute || x.clubId.localeCompare(y.clubId));
 
   return {
@@ -311,6 +427,10 @@ export function simulateFirstHalf(ctx: Ctx, fixture: Fixture, clubId: string): H
     lambda: { home: xgHome.lambda, away: xgAway.lambda },
     factors: { home: xgHome.factors, away: xgAway.factors },
     goals,
+    cards,
+    bookedHome: [...bookedHome],
+    bookedAway: [...bookedAway],
+    derby,
     homeGoals: h,
     awayGoals: a,
     attendance: attendanceFor(world, fixture),
@@ -357,29 +477,41 @@ export function finishMatch(ctx: Ctx, ht: HalfTimeState, decision: HalfTimeDecis
   const fixture = world.fixtures[ht.fixtureId];
   const humanHome = ht.clubId === fixture.homeClubId;
 
+  const offHome = new Set(ht.cards.filter((c) => c.kind !== 'yellow' && c.clubId === fixture.homeClubId).map((c) => c.playerId));
+  const offAway = new Set(ht.cards.filter((c) => c.kind !== 'yellow' && c.clubId === fixture.awayClubId).map((c) => c.playerId));
+
   const homeSel1 = selectionFromIds(world, ht.homeXI, ht.homeFormation, ht.homeTactic);
   const awaySel1 = selectionFromIds(world, ht.awayXI, ht.awayFormation, ht.awayTactic);
-  const mine1 = humanHome ? homeSel1 : awaySel1;
+  // Anyone sent off in the first half takes no part in the second.
+  const mine1 = elevenLeft(world, humanHome ? homeSel1 : awaySel1, humanHome ? offHome : offAway, humanHome ? ht.homeTactic : ht.awayTactic);
   const newTactic = decision.tactic ?? (humanHome ? ht.homeTactic : ht.awayTactic);
   const oldTactic = humanHome ? ht.homeTactic : ht.awayTactic;
   const { sel: mine2, applied } = applySubs(world, mine1, decision.subs ?? []);
 
-  const homeSel2 = humanHome ? mine2 : homeSel1;
-  const awaySel2 = humanHome ? awaySel1 : mine2;
+  const homeSel2 = humanHome ? mine2 : elevenLeft(world, homeSel1, offHome, ht.homeTactic);
+  const awaySel2 = humanHome ? elevenLeft(world, awaySel1, offAway, ht.awayTactic) : mine2;
   const homeTactic2 = humanHome ? newTactic : ht.homeTactic;
   const awayTactic2 = humanHome ? ht.awayTactic : newTactic;
 
-  const homeSide2 = sideInput(world, fixture.homeClubId, homeSel2, homeTactic2, true);
-  const awaySide2 = sideInput(world, fixture.awayClubId, awaySel2, awayTactic2, false);
+  const homeSide2 = sideInput(world, fixture.homeClubId, homeSel2, homeTactic2, true, ht.derby);
+  const awaySide2 = sideInput(world, fixture.awayClubId, awaySel2, awayTactic2, false, ht.derby);
   const xg2Home = expectedGoals(homeSide2, awaySide2);
   const xg2Away = expectedGoals(awaySide2, homeSide2);
 
-  const h2 = rng.poisson(xg2Home.lambda / 2);
-  const a2 = rng.poisson(xg2Away.lambda / 2);
+  const bookedHome = new Set(ht.bookedHome), bookedAway = new Set(ht.bookedAway);
+  const cards = [
+    ...ht.cards,
+    ...halfCards(ctx, homeSel2, fixture.homeClubId, 46, 90, bookedHome, offHome, ht.derby),
+    ...halfCards(ctx, awaySel2, fixture.awayClubId, 46, 90, bookedAway, offAway, ht.derby),
+  ].sort((x, y) => x.minute - y.minute || x.clubId.localeCompare(y.clubId));
+  const mp2Home = manpower(cards, fixture.homeClubId, 46, 90);
+  const mp2Away = manpower(cards, fixture.awayClubId, 46, 90);
+  const h2 = rng.poisson((xg2Home.lambda / 2) * mp2Home.mine * mp2Away.theirs);
+  const a2 = rng.poisson((xg2Away.lambda / 2) * mp2Away.mine * mp2Home.theirs);
   const goals = [
     ...ht.goals,
-    ...halfGoals(ctx, xg2Home.lambda, h2, homeSel2, fixture.homeClubId, 46, 90),
-    ...halfGoals(ctx, xg2Away.lambda, a2, awaySel2, fixture.awayClubId, 46, 90),
+    ...halfGoals(ctx, xg2Home.lambda, h2, homeSel2, fixture.homeClubId, 46, 90, cards),
+    ...halfGoals(ctx, xg2Away.lambda, a2, awaySel2, fixture.awayClubId, 46, 90, cards),
   ].sort((x, y) => x.minute - y.minute || x.clubId.localeCompare(y.clubId));
 
   const changed = newTactic !== oldTactic || applied.length > 0;
@@ -394,6 +526,8 @@ export function finishMatch(ctx: Ctx, ht: HalfTimeState, decision: HalfTimeDecis
     subs: applied.map((x) => ({ clubId: ht.clubId, offId: x.offId, onId: x.onId, minute: 46 })),
     tacticChange: newTactic !== oldTactic ? { clubId: ht.clubId, from: oldTactic, to: newTactic } : null,
     attendance: ht.attendance,
+    cards,
+    derby: ht.derby,
   });
 }
 

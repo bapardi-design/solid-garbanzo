@@ -17,6 +17,8 @@ export interface PlayerSeasonStats {
   assists: number;
   minutes: number;
   ratingSum: number;
+  yellows: number;
+  reds: number;
 }
 
 export interface Loan {
@@ -42,6 +44,8 @@ export interface Player {
   fitness: number;
   form: number;
   injuryDays: number;
+  /** Matches still to sit out. Counts down as the club plays. */
+  suspension: number;
   value: number;
   stats: PlayerSeasonStats;
   career: { apps: number; goals: number };
@@ -154,6 +158,17 @@ export interface GoalEvent {
   assistId: string | null;
 }
 
+export type CardKind = 'yellow' | 'second' | 'red';
+
+export interface CardEvent {
+  minute: number;
+  clubId: string;
+  playerId: string;
+  kind: CardKind;
+  /** Matches banned; 0 for a first yellow. */
+  ban: number;
+}
+
 /** A half-time substitution. Minute is always 46 for now. */
 export interface MatchSub {
   clubId: string;
@@ -173,8 +188,11 @@ export interface MatchReport {
   /** Set when the second half was played on a different basis (a half-time change). */
   second: { lambda: { home: number; away: number }; factors: { home: GoalFactor[]; away: GoalFactor[] } } | null;
   goals: GoalEvent[];
+  cards: CardEvent[];
   penalties: { home: number; away: number } | null;
   attendance: number;
+  /** Same-city meeting. */
+  derby: boolean;
   /** Score after 45 minutes. */
   halfTimeScore: { home: number; away: number };
   subs: MatchSub[];
@@ -281,6 +299,11 @@ export interface HalfTimeState {
   lambda: { home: number; away: number };
   factors: { home: GoalFactor[]; away: GoalFactor[] };
   goals: GoalEvent[];
+  cards: CardEvent[];
+  /** Players carrying a booking at the interval, by club side. */
+  bookedHome: string[];
+  bookedAway: string[];
+  derby: boolean;
   homeGoals: number;
   awayGoals: number;
   attendance: number;

@@ -234,6 +234,27 @@ export function reduce(w: World, e: Event): void {
         p.form = clamp(p.form * 0.7 + ((s.rating - 6) * 25 + 50) * 0.3, 0, 100);
         p.lastStartDay = e.day;
       }
+      // Cards: bookings on the sheet, bans start with the next match.
+      for (const c of report.cards ?? []) {
+        const p = w.players[c.playerId];
+        if (!p) continue;
+        if (c.kind === 'yellow') {
+          p.stats.yellows += 1;
+          // Every fifth booking of the season costs a match.
+          if (p.stats.yellows % 5 === 0) p.suspension += 1;
+        } else {
+          p.stats.reds += 1;
+          if (c.kind === 'second') p.stats.yellows += 1;
+        }
+        if (c.ban > 0) p.suspension += c.ban;
+      }
+      // Anybody serving a ban sits this one out, so it ticks down.
+      for (const side of [f.homeClubId, f.awayClubId]) {
+        for (const pid of w.idx.squadByClub[side] ?? []) {
+          const p = w.players[pid];
+          if (p.suspension > 0 && !playerStats[pid]) p.suspension -= 1;
+        }
+      }
       const comp = w.competitions[f.competitionId];
       if (comp.kind === 'league') {
         const hp = homeGoals > awayGoals ? 3 : homeGoals === awayGoals ? 1 : 0;
@@ -392,7 +413,8 @@ export function reduce(w: World, e: Event): void {
         const p = w.players[id];
         if (p.retired) continue;
         p.age += 1;
-        p.stats = { apps: 0, goals: 0, assists: 0, minutes: 0, ratingSum: 0 };
+        p.stats = { apps: 0, goals: 0, assists: 0, minutes: 0, ratingSum: 0, yellows: 0, reds: 0 };
+        // Bookings wipe at the season break; a ban still to serve carries over.
         p.form = 50;
         p.morale = clamp(Math.round(50 + (p.morale - 50) * 0.5), 0, 100);
       }

@@ -7,7 +7,7 @@
  *    is played out once the decision is made.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import Engine, { type Fixture, type HalfTimeDecision, type World } from 'sim-engine';
+import Engine, { type CardEvent, type Fixture, type HalfTimeDecision, type World } from 'sim-engine';
 import { Crest, Ovr, type GameT } from './shared';
 import { identity, luminance } from '../brand';
 
@@ -17,7 +17,7 @@ const kitBar = (name: string): string => {
   return luminance(id.primary) > 0.75 ? id.secondary : id.primary;
 };
 
-interface Line { minute: number; kind: 'goal' | 'chance' | 'info' | 'card' | 'half' | 'sub' | 'end'; clubId: string | null; text: string }
+interface Line { minute: number; kind: 'goal' | 'chance' | 'info' | 'card' | 'red' | 'half' | 'sub' | 'end'; clubId: string | null; text: string }
 
 function seeded(s: string): () => number {
   let h = 2166136261;
@@ -27,7 +27,10 @@ function seeded(s: string): () => number {
 
 const CHANCE = ['{p} shoots from distance; over the bar.', '{p} gets in behind but the keeper stands tall.', 'Corner for {c}; {p} heads it wide.', '{p} cuts inside and curls one just past the post.', 'Big chance! {p} scuffs it from eight yards.', '{c} pressing high; {p} wins it back and drives forward.', 'Cross from {p} cleared at the near post.', 'Save! {p} forces a full-stretch stop.'];
 const GOALS = ['GOAL! {p} finishes clinically. {s}', 'GOAL! {p} scores for {c}. {s}', 'GOAL! {p} with a composed finish. {s}', 'GOAL! A rocket from {p}. {s}'];
-const FILLER = ['Midfield battle; neither side finding a way through.', 'A lull in the game. Both benches restless.', 'Yellow card; a late challenge in midfield.', '{c} dominating possession without a clear opening.', 'The crowd finds its voice.'];
+const FILLER = ['Midfield battle; neither side finding a way through.', 'A lull in the game. Both benches restless.', 'A free kick out wide comes to nothing.', '{c} dominating possession without a clear opening.', 'The crowd finds its voice.'];
+const YELLOWS = ['Booked. {p} goes into the book for a late one.', 'Yellow card for {p}; he drags {c} back as they broke.', '{p} is shown a yellow after a word with the referee.', 'Cynical from {p}, and the card comes out.'];
+const SECONDS = ['Second yellow! {p} is off, and {c} are down to ten.', 'That is two for {p}. Off he goes; {c} play the rest a man short.'];
+const REDS = ['RED CARD. {p} is sent off — {c} have a mountain to climb with ten.', 'Straight red for {p}. No argument; {c} are down to ten men.'];
 
 interface HalfSpec {
   seed: string;
@@ -41,6 +44,7 @@ interface HalfSpec {
   from: number;
   to: number;
   score: { home: number; away: number };
+  cards: CardEvent[];
 }
 
 /** Commentary for one half. `score` is the running score at kick-off of the half. */
@@ -58,7 +62,10 @@ function halfLines(w: World, spec: HalfSpec): Line[] {
   const outfield = (clubId: string) => (clubId === home.id ? spec.homeXI : spec.awayXI).slice(1);
   let hs = spec.score.home, as = spec.score.away;
   const span = spec.to - spec.from + 1;
-  const events: { minute: number; clubId: string; goal?: HalfSpec['goals'][number] }[] = spec.goals.map((g) => ({ minute: g.minute, clubId: g.clubId, goal: g }));
+  const events: { minute: number; clubId: string; goal?: HalfSpec['goals'][number]; card?: CardEvent }[] = [
+    ...spec.goals.map((g) => ({ minute: g.minute, clubId: g.clubId, goal: g })),
+    ...spec.cards.filter((c) => c.minute >= spec.from && c.minute <= spec.to).map((c) => ({ minute: c.minute, clubId: c.clubId, card: c })),
+  ];
   const chances = Math.max(1, Math.round((spec.lambdaHome + spec.lambdaAway) * 3));
   for (let i = 0; i < chances; i++) {
     const clubId = rnd() < spec.lambdaHome / Math.max(0.01, spec.lambdaHome + spec.lambdaAway) ? home.id : away.id;
@@ -73,11 +80,14 @@ function halfLines(w: World, spec: HalfSpec): Line[] {
       if (e.clubId === home.id) hs++; else as++;
       const assist = e.goal.assistId ? ` Assist ${name(e.goal.assistId)}.` : '';
       lines.push({ minute: e.minute, kind: 'goal', clubId: e.clubId, text: pick(GOALS).replace('{p}', name(e.goal.scorerId)).replace('{c}', c.name).replace('{s}', `${home.short} ${hs}-${as} ${away.short}.`) + assist });
+    } else if (e.card) {
+      const pool = e.card.kind === 'yellow' ? YELLOWS : e.card.kind === 'second' ? SECONDS : REDS;
+      lines.push({ minute: e.minute, kind: e.card.kind === 'yellow' ? 'card' : 'red', clubId: e.clubId, text: pick(pool).replace('{p}', name(e.card.playerId)).replace('{c}', c.short) });
     } else {
       const pool = outfield(e.clubId);
       const p = name(pool[Math.floor(rnd() * pool.length)]);
       const t = rnd() < 0.7 ? pick(CHANCE) : pick(FILLER);
-      lines.push({ minute: e.minute, kind: t.includes('card') ? 'card' : 'chance', clubId: e.clubId, text: t.replace('{p}', p).replace('{c}', c.short) });
+      lines.push({ minute: e.minute, kind: 'chance', clubId: e.clubId, text: t.replace('{p}', p).replace('{c}', c.short) });
     }
   }
   return lines;
@@ -107,12 +117,12 @@ export function buildCommentary(game: GameT, f: Fixture): Line[] {
   const home = w.clubs[f.homeClubId], away = w.clubs[f.awayClubId];
   const first = halfLines(w, {
     seed: f.id, homeId: home.id, awayId: away.id, homeXI: r.homeXI, awayXI: r.awayXI,
-    goals: r.goals.filter((g) => g.minute <= 45), lambdaHome: r.lambda.home / 2, lambdaAway: r.lambda.away / 2,
+    goals: r.goals.filter((g) => g.minute <= 45), cards: r.cards, lambdaHome: r.lambda.home / 2, lambdaAway: r.lambda.away / 2,
     from: 1, to: 45, score: { home: 0, away: 0 },
   });
   const second = halfLines(w, {
     seed: `${f.id}#2`, homeId: home.id, awayId: away.id, homeXI: secondHalfXI(f, home.id), awayXI: secondHalfXI(f, away.id),
-    goals: r.goals.filter((g) => g.minute > 45), lambdaHome: (r.second?.lambda.home ?? r.lambda.home) / 2, lambdaAway: (r.second?.lambda.away ?? r.lambda.away) / 2,
+    goals: r.goals.filter((g) => g.minute > 45), cards: r.cards, lambdaHome: (r.second?.lambda.home ?? r.lambda.home) / 2, lambdaAway: (r.second?.lambda.away ?? r.lambda.away) / 2,
     from: 46, to: 90, score: r.halfTimeScore,
   });
   return [
@@ -134,12 +144,12 @@ function halfTimeChangeLines(w: World, f: Fixture): Line[] {
   return out;
 }
 
-function Scoreboard({ game, f, homeGoals, awayGoals, clock, note }: { game: GameT; f: { homeClubId: string; awayClubId: string; competitionId?: string }; homeGoals: number; awayGoals: number; clock: string; note?: string }) {
+function Scoreboard({ game, f, homeGoals, awayGoals, clock, note, derby }: { game: GameT; f: { homeClubId: string; awayClubId: string; competitionId?: string }; homeGoals: number; awayGoals: number; clock: string; note?: string; derby?: boolean }) {
   const w = game.world;
   const home = w.clubs[f.homeClubId], away = w.clubs[f.awayClubId];
   return (
     <>
-      <p className="eyebrow">{f.competitionId ? w.competitions[f.competitionId]?.name : note} · live</p>
+      <p className="eyebrow">{f.competitionId ? w.competitions[f.competitionId]?.name : note} · live{derby ? <> · <span className="pill hot">derby</span></> : null}</p>
       <div className="scoreboard">
         <div className="team"><Crest name={home.name} short={home.short} size="l" /><b>{home.name}</b><i className="kit" style={{ background: kitBar(home.name) }} /></div>
         <div className="mid"><div className="sc">{homeGoals}<span>–</span>{awayGoals}</div><div className="clock">{clock}</div></div>
@@ -182,7 +192,7 @@ export function MatchLive({ game, fixture, clubId, onDone }: { game: GameT; fixt
   return (
     <div className="modal-backdrop live" role="dialog" aria-modal="true" aria-label="Live match">
       <div className="modal wide">
-        <Scoreboard game={game} f={fixture} homeGoals={hs} awayGoals={as} clock={done ? 'FT' : `${minute}'`} />
+        <Scoreboard game={game} f={fixture} homeGoals={hs} awayGoals={as} clock={done ? 'FT' : `${minute}'`} derby={fixture.report?.derby} />
         <Feed lines={shown} mineId={clubId} />
         <div className="actions">
           {!done ? <>
@@ -227,7 +237,7 @@ export function ManagedMatch({ game, clubId, onResume, onDone }: { game: GameT; 
       ...halfLines(w, {
         seed: start.fixtureId, homeId: start.homeClubId, awayId: start.awayClubId,
         homeXI: ht.homeXI, awayXI: ht.awayXI,
-        goals: start.goals, lambdaHome: start.xg.home, lambdaAway: start.xg.away, from: 1, to: 45, score: { home: 0, away: 0 },
+        goals: start.goals, cards: start.cards, lambdaHome: start.xg.home, lambdaAway: start.xg.away, from: 1, to: 45, score: { home: 0, away: 0 },
       }),
     ];
   }, [start, ht, w]);
@@ -240,7 +250,7 @@ export function ManagedMatch({ game, clubId, onResume, onDone }: { game: GameT; 
       ...halfLines(w, {
         seed: `${fixture.id}#2`, homeId: fixture.homeClubId, awayId: fixture.awayClubId,
         homeXI: secondHalfXI(fixture, fixture.homeClubId), awayXI: secondHalfXI(fixture, fixture.awayClubId),
-        goals: r.goals.filter((g) => g.minute > 45), lambdaHome: (r.second?.lambda.home ?? r.lambda.home) / 2, lambdaAway: (r.second?.lambda.away ?? r.lambda.away) / 2,
+        goals: r.goals.filter((g) => g.minute > 45), cards: r.cards, lambdaHome: (r.second?.lambda.home ?? r.lambda.home) / 2, lambdaAway: (r.second?.lambda.away ?? r.lambda.away) / 2,
         from: 46, to: 90, score: r.halfTimeScore,
       }),
       ...(r.penalties ? [{ minute: 90, kind: 'info' as const, clubId: null, text: `Penalties: ${w.clubs[fixture.homeClubId].short} ${r.penalties.home}-${r.penalties.away} ${w.clubs[fixture.awayClubId].short}.` }] : []),
@@ -263,6 +273,7 @@ export function ManagedMatch({ game, clubId, onResume, onDone }: { game: GameT; 
     setFixture(f);
     setPhase('second');
   };
+  const myBooked = start.cards.filter((c) => c.clubId === clubId && c.kind === 'yellow' && !start.mine.sentOff.includes(c.playerId)).map((c) => c.playerId);
   const myGoals = mineHome ? start.homeGoals : start.awayGoals;
   const theirGoals = mineHome ? start.awayGoals : start.homeGoals;
   const mood = myGoals > theirGoals ? 'You are ahead. Keep the shape or push on?' : myGoals < theirGoals ? 'You are behind. Something has to change.' : 'All square. The game is there to be won.';
@@ -270,10 +281,12 @@ export function ManagedMatch({ game, clubId, onResume, onDone }: { game: GameT; 
   return (
     <div className="modal-backdrop live" role="dialog" aria-modal="true" aria-label="Live match">
       <div className="modal wide">
-        <Scoreboard game={game} f={{ homeClubId: start.homeClubId, awayClubId: start.awayClubId }} homeGoals={hs} awayGoals={as} clock={done ? 'FT' : phase === 'ht' ? 'HT' : `${minute}'`} note={start.competitionName} />
+        <Scoreboard game={game} f={{ homeClubId: start.homeClubId, awayClubId: start.awayClubId }} homeGoals={hs} awayGoals={as} clock={done ? 'FT' : phase === 'ht' ? 'HT' : `${minute}'`} note={start.competitionName} derby={start.derby} />
         {phase === 'ht' ? (
           <div className="halftime">
             <p className="lede">{mood} First-half expected goals: you {(mineHome ? start.xg.home : start.xg.away).toFixed(2)}, them {(mineHome ? start.xg.away : start.xg.home).toFixed(2)}.</p>
+            {start.mine.sentOff.length ? <p className="warn-note">{start.mine.sentOff.map((id) => w.players[id]?.name ?? id).join(' and ')} sent off. You play the second half with {11 - start.mine.sentOff.length} men.</p> : null}
+            {myBooked.length ? <p className="booked-note"><i className="card-y" />{myBooked.map((id) => w.players[id]?.name ?? id).join(', ')} {myBooked.length === 1 ? 'is' : 'are'} walking a tightrope. One more and {myBooked.length === 1 ? 'he is' : 'they are'} off.</p> : null}
             <div className="ht-cols">
               <div>
                 <h4>Approach</h4>
@@ -291,7 +304,7 @@ export function ManagedMatch({ game, clubId, onResume, onDone }: { game: GameT; 
                     return (
                       <li key={playerId} className={swapped ? 'out' : ''}>
                         <span className="pos">{pos}</span>
-                        <span className="nm">{p.name}</span>
+                        <span className="nm">{p.name}{myBooked.includes(playerId) ? <i className="card-y" title="Booked" /> : null}</span>
                         <Ovr v={Engine.overall(p)} />
                         <span className="muted small">{Math.round(p.fitness)}% fit</span>
                         {swapped

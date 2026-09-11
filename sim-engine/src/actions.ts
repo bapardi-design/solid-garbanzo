@@ -4,7 +4,7 @@
  */
 import type { Ctx } from './core/context.js';
 import { clamp, hashString } from './core/rng.js';
-import type { Club, Decision, GoalEvent, Manager, NewsCategory, NewsItem, Player, Position, Tactic, TransferRecord, World } from './core/schema.js';
+import type { CardEvent, Club, Decision, GoalEvent, Manager, NewsCategory, NewsItem, Player, Position, Tactic, TransferRecord, World } from './core/schema.js';
 import { contractOf, isRealWorld, nextId, squad, tierOfClub } from './core/schema.js';
 import { overall, playerValue, wageDemand, weeklyWageBill } from './rating.js';
 import { MAX_SQUAD, MIN_PER_POSITION, buildMarket, inTransferWindow, type Listing } from './engines/transfers.js';
@@ -392,6 +392,10 @@ export interface HalfTimeView {
   homeGoals: number;
   awayGoals: number;
   goals: GoalEvent[];
+  /** Bookings and sendings-off so far. */
+  cards: CardEvent[];
+  /** Two clubs from the same city. */
+  derby: boolean;
   /** Expected goals in the first half. */
   xg: { home: number; away: number };
   mine: {
@@ -399,8 +403,10 @@ export interface HalfTimeView {
     home: boolean;
     tactic: Tactic;
     formation: string;
-    /** On the pitch, in formation order. */
+    /** Still on the pitch, in formation order. */
     xi: { playerId: string; pos: Position }[];
+    /** Your own players sent off in the first half. */
+    sentOff: string[];
     /** Fit players on the bench, strongest first. */
     bench: string[];
   };
@@ -413,7 +419,9 @@ export function halfTimeView(world: World): HalfTimeView | null {
   if (!ht) return null;
   const fixture = world.fixtures[ht.fixtureId];
   const home = ht.clubId === fixture.homeClubId;
-  const xiIds = home ? ht.homeXI : ht.awayXI;
+  const sentOff = ht.cards.filter((c) => c.kind !== 'yellow' && c.clubId === ht.clubId).map((c) => c.playerId);
+  // A man already off cannot be taken off again.
+  const xiIds = (home ? ht.homeXI : ht.awayXI).filter((id) => !sentOff.includes(id));
   const tactic = home ? ht.homeTactic : ht.awayTactic;
   const formation = home ? ht.homeFormation : ht.awayFormation;
   const order: Position[] = ['GK', 'DF', 'MF', 'FW'];
@@ -421,7 +429,7 @@ export function halfTimeView(world: World): HalfTimeView | null {
     .map((playerId) => ({ playerId, pos: world.players[playerId]?.position ?? 'MF' as Position }))
     .sort((a, b) => order.indexOf(a.pos) - order.indexOf(b.pos) || overall(world.players[b.playerId]) - overall(world.players[a.playerId]));
   const bench = squad(world, ht.clubId)
-    .filter((p) => !p.retired && p.injuryDays === 0 && !xiIds.includes(p.id))
+    .filter((p) => !p.retired && p.injuryDays === 0 && p.suspension === 0 && !xiIds.includes(p.id))
     .sort((a, b) => overall(b) - overall(a))
     .map((p) => p.id);
   return {
@@ -432,8 +440,10 @@ export function halfTimeView(world: World): HalfTimeView | null {
     homeGoals: ht.homeGoals,
     awayGoals: ht.awayGoals,
     goals: ht.goals,
+    cards: ht.cards,
+    derby: ht.derby,
     xg: { home: ht.lambda.home / 2, away: ht.lambda.away / 2 },
-    mine: { clubId: ht.clubId, home, tactic, formation, xi, bench },
+    mine: { clubId: ht.clubId, home, tactic, formation, xi, sentOff, bench },
     maxSubs: MAX_SUBS,
   };
 }

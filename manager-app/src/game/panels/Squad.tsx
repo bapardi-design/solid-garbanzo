@@ -42,7 +42,7 @@ export function SquadPanel({ game, clubId, onPlayer }: { game: GameT; clubId: st
       </header>
       <div className="scroll">
         <table className="squad">
-          <thead><tr><th></th>{th('pos', 'Player')}<th>Pos</th><th>Nat</th>{th('age', 'Age', true)}{th('ovr', 'Ovr', true)}<th className="num">Pot</th><th className="num">Fit</th><th className="num">Mor</th>{th('apps', 'Apps', true)}{th('goals', 'G', true)}<th className="num">A</th>{th('rating', 'Rat', true)}{th('value', 'Value', true)}{th('wage', 'Wage', true)}<th className="num">Until</th><th>Status</th></tr></thead>
+          <thead><tr><th></th>{th('pos', 'Player')}<th>Pos</th><th>Nat</th>{th('age', 'Age', true)}{th('ovr', 'Ovr', true)}<th className="num">Pot</th><th className="num">Fit</th><th className="num">Mor</th>{th('apps', 'Apps', true)}{th('goals', 'G', true)}<th className="num">A</th><th className="num" title="Yellow cards / red cards">Cards</th>{th('rating', 'Rat', true)}{th('value', 'Value', true)}{th('wage', 'Wage', true)}<th className="num">Until</th><th>Status</th></tr></thead>
           <tbody>
             {players.map((p) => {
               const c = Engine.contractOf(world, p.id);
@@ -62,12 +62,15 @@ export function SquadPanel({ game, clubId, onPlayer }: { game: GameT; clubId: st
                   <td className="num">{p.stats.apps}</td>
                   <td className="num">{p.stats.goals}</td>
                   <td className="num">{p.stats.assists}</td>
+                  <td className="num mono">{p.stats.yellows || p.stats.reds ? <><span className="card-y">{p.stats.yellows}</span>{p.stats.reds ? <span className="card-r">{p.stats.reds}</span> : null}</> : <span className="muted">–</span>}</td>
                   <td className="num">{p.stats.apps ? Engine.averageRating(p).toFixed(2) : '–'}</td>
                   <td className="num">{money(p.value, cur)}</td>
                   <td className="num">{c ? wage(c.wage, cur) : '–'}</td>
                   <td className="num">{c ? `S${c.endSeason}` : '–'}</td>
                   <td>
                     {p.injuryDays > 0 ? <span className="pill bad">inj {p.injuryDays}d</span> : null}{' '}
+                    {p.suspension > 0 ? <span className="pill bad">banned {p.suspension}</span> : null}{' '}
+                    {p.stats.yellows % 5 === 4 ? <span className="pill warn">1 from a ban</span> : null}{' '}
                     {p.loan ? <span className="pill">loan</span> : null}{' '}
                     {p.listedAt !== null ? <span className="pill warn">listed</span> : null}{' '}
                     {exp ? <span className="pill warn">expiring</span> : null}{' '}

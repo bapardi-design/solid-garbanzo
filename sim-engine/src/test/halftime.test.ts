@@ -204,3 +204,65 @@ test('a ticket rise lifts the gate and thins the crowd', async () => {
   assert.ok(B.ticketFactor(game.world, clubId) > 1);
   assert.ok(B.attendanceFactor(game.world, clubId) < 1, 'dearer tickets mean a smaller crowd');
 });
+
+test('cards are shown, sendings-off are banned, and nobody is booked after going off', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const game = createGame({ ...small, seed: 'discipline' });
+  step(game, 200);
+  const fixtures = Object.values(game.world.fixtures).filter((f) => f.played && f.report);
+  assert.ok(fixtures.length > 20, 'matches were played');
+  assert.ok(fixtures.flatMap((f) => f.report!.cards).length > 0, 'bookings happen');
+  for (const f of fixtures) {
+    const off = new Set<string>();
+    for (const c of f.report!.cards) {
+      assert.ok(c.minute >= 1 && c.minute <= 90);
+      assert.ok([f.homeClubId, f.awayClubId].includes(c.clubId));
+      if (c.kind === 'yellow') assert.equal(c.ban, 0);
+      else assert.ok(c.ban >= 1, 'a sending-off carries a ban');
+      assert.ok(!off.has(c.playerId), 'nobody is booked after being sent off');
+      if (c.kind !== 'yellow') off.add(c.playerId);
+    }
+  }
+  assert.ok(Object.values(game.world.players).some((p) => p.suspension > 0 || p.stats.reds > 0), 'bans are handed out');
+});
+
+test('a banned player cannot be picked', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const { selectXI } = await import('../matchday/xi.js');
+  const game = createGame({ ...small, seed: 'banned' });
+  step(game, 200);
+  const banned = Object.values(game.world.players).find((p) => p.suspension > 0 && p.clubId);
+  assert.ok(banned, 'somebody is serving a ban');
+  assert.ok(!selectXI(game.world, banned!.clubId!, 'balanced').playerIds.includes(banned!.id), 'the banned player is left out');
+});
+
+test('clubs from the same city play a derby', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const { isDerby } = await import('../matchday/match.js');
+  const { DEFAULT_CONFIG } = await import('../core/schema.js');
+  const game = createGame({ ...DEFAULT_CONFIG, seed: 'derby', nations: ['ENG'] });
+  step(game, 1); // the fixture list is drawn when the season starts
+  const derbies = Object.values(game.world.fixtures).filter((f) => isDerby(game.world, f));
+  assert.ok(derbies.length > 0, 'England has same-city fixtures');
+  for (const f of derbies) assert.equal(game.world.clubs[f.homeClubId].city, game.world.clubs[f.awayClubId].city);
+});
+
+test('a player sent off takes no further part in the match', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const game = createGame({ ...small, seed: 'sent-off' });
+  step(game, 400);
+  let checked = 0;
+  for (const f of Object.values(game.world.fixtures)) {
+    const r = f.report;
+    if (!r) continue;
+    for (const c of r.cards) {
+      if (c.kind === 'yellow') continue;
+      checked++;
+      for (const g of r.goals) {
+        if (g.minute > c.minute) assert.notEqual(g.scorerId, c.playerId, 'a man already off cannot score');
+      }
+      assert.ok(r.cards.filter((x) => x.playerId === c.playerId && x.minute > c.minute).length === 0, 'no further cards for him');
+    }
+  }
+  assert.ok(checked > 0, 'somebody was sent off');
+});
