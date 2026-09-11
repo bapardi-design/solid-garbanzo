@@ -291,3 +291,30 @@ test('the board never proposes a stand the club could not pay for', async () => 
   }
   assert.ok(seen > 0, 'a stand was offered at some point');
 });
+
+test('a top-flight club does not simply bank its income', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const { DEFAULT_CONFIG, tierOfClub } = await import('../core/schema.js');
+  const game = createGame({ ...DEFAULT_CONFIG, seed: 'books', nations: ['ENG'] });
+  const books = new Map<string, number>();
+  const add = (cat: string, amt: number) => books.set(cat, (books.get(cat) ?? 0) + amt);
+  for (let d = 0; d < 400; d++) {
+    for (const e of step(game, 1)) {
+      if (e.type !== 'FINANCE_POSTED') continue;
+      for (const entry of e.payload.entries) {
+        if (tierOfClub(game.world, entry.clubId) !== 1) continue;
+        add(entry.category, entry.amount);
+      }
+    }
+    if (game.world.day % game.world.seasonLength === game.world.seasonLength - 1) break;
+  }
+  const income = [...books.entries()].filter(([, v]) => v > 0).reduce((s, [, v]) => s + v, 0);
+  const wages = -(books.get('wages') ?? 0);
+  const net = [...books.values()].reduce((a, b) => a + b, 0);
+  assert.ok(income > 0, 'the division earns something');
+  // Wages are most of the money a real club takes, and what is left over is a
+  // margin, not a second income. Without this the top flight banks a fortune
+  // every year and the transfer market inflates out of reach.
+  assert.ok(wages / income > 0.35 && wages / income < 0.75, `wages are ${(100 * wages / income).toFixed(0)}% of income`);
+  assert.ok(net / income < 0.3, `the division keeps ${(100 * net / income).toFixed(0)}% of what it earns`);
+});
