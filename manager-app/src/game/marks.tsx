@@ -118,9 +118,9 @@ export function Mark({ size = 30 }: { size?: number }) {
   return (
     <svg viewBox="0 0 32 32" width={size} height={size} className="mark" role="img" aria-label="Touchline" focusable="false">
       <rect x={0} y={0} width={32} height={32} rx={7} fill="var(--accent)" />
-      <path d="M8 4 V28 H27" fill="none" stroke="var(--accent-ink)" strokeWidth={2.4} strokeLinecap="square" opacity={0.95} />
-      <path d="M8 21 A7 7 0 0 0 15 28" fill="none" stroke="var(--accent-ink)" strokeWidth={1.6} opacity={0.55} />
-      <circle cx={20} cy={13} r={3.6} fill="var(--accent-ink)" />
+      <path d="M7 4 V27 H27" fill="none" stroke="var(--accent-ink)" strokeWidth={2.6} strokeLinecap="square" />
+      <path d="M7 19 A8 8 0 0 0 15 27" fill="none" stroke="var(--accent-ink)" strokeWidth={1.5} opacity={0.6} />
+      <circle cx={22} cy={11} r={3.1} fill="var(--accent-ink)" />
     </svg>
   );
 }
