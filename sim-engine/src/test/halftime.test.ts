@@ -266,3 +266,28 @@ test('a player sent off takes no further part in the match', async () => {
   }
   assert.ok(checked > 0, 'somebody was sent off');
 });
+
+test('the board never proposes a stand the club could not pay for', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const A = await import('../actions.js');
+  const game = createGame({ ...small, seed: 'stands' });
+  const clubId = A.jobOffers(game.ctx)[0].club.id;
+  A.takeOverClub(game.ctx, clubId, 'Gaffer');
+  let seen = 0;
+  for (let i = 0; i < 250; i++) {
+    step(game, 1);
+    const view = A.boardroomView(game.world);
+    if (!view) continue;
+    for (const d of view.pending) {
+      for (const o of d.options) {
+        assert.ok((o.cost ?? 0) <= game.world.clubs[clubId].balance, `${d.kind} option ${o.id} costs ${o.cost} against a bank of ${game.world.clubs[clubId].balance}`);
+        if (d.kind === 'stadium' && o.seats) {
+          seen++;
+          const perSeat = (o.cost ?? 0) / o.seats;
+          assert.ok(perSeat >= 1 && perSeat <= 20, `a seat costs ${perSeat}k`);
+        }
+      }
+    }
+  }
+  assert.ok(seen > 0, 'a stand was offered at some point');
+});
