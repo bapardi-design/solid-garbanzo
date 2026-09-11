@@ -7,9 +7,9 @@
 import type { Ctx } from '../core/context.js';
 import type { PlayerMatchStats } from '../core/events.js';
 import { clamp } from '../core/rng.js';
-import type { Fixture, GoalEvent, GoalFactor, MatchReport, Player, Position, Tactic, World } from '../core/schema.js';
+import type { Fixture, GoalEvent, GoalFactor, HalfTimeState, MatchReport, Player, Position, Tactic, World } from '../core/schema.js';
 import { effectiveRating } from '../rating.js';
-import { selectXI, type Selection } from './xi.js';
+import { FORMATIONS, selectXI, type Selection } from './xi.js';
 
 /** Calibrated for roughly 2.6-2.8 goals per game, ~45% home wins, ~26% draws. */
 export const BASE_HOME_XG = 1.43;
@@ -113,28 +113,76 @@ export interface MatchOutcome {
   injuries: { playerId: string; days: number }[];
 }
 
-export function simulateMatch(ctx: Ctx, fixture: Fixture): MatchOutcome {
+/** What the human asks for at half time. Invalid entries are ignored. */
+export interface HalfTimeDecision {
+  tactic?: Tactic;
+  subs?: { offId: string; onId: string }[];
+}
+
+export const MAX_SUBS = 3;
+
+function sideInput(world: World, clubId: string, sel: Selection, tactic: Tactic, home: boolean): SideInput {
+  return { clubId, lines: teamLines(world, sel), tactic, managerAbility: managerAbility(world, clubId), form: clubForm(world, clubId), home };
+}
+
+/** Position slot a player occupies in a selection. */
+function slotOf(sel: Selection, playerId: string): Position | null {
+  for (const pos of ['GK', 'DF', 'MF', 'FW'] as const) {
+    if (sel.byPos[pos].some((x) => x.playerId === playerId)) return pos;
+  }
+  return null;
+}
+
+/** Applies up to MAX_SUBS like-for-like swaps, skipping any that are not legal. */
+export function applySubs(world: World, sel: Selection, subs: { offId: string; onId: string }[]): { sel: Selection; applied: { offId: string; onId: string }[] } {
+  const byPos: Selection['byPos'] = { GK: [...sel.byPos.GK], DF: [...sel.byPos.DF], MF: [...sel.byPos.MF], FW: [...sel.byPos.FW] };
+  const next: Selection = { formation: sel.formation, playerIds: [...sel.playerIds], byPos };
+  const applied: { offId: string; onId: string }[] = [];
+  for (const { offId, onId } of subs) {
+    if (applied.length >= MAX_SUBS) break;
+    const on = world.players[onId];
+    if (!on || on.retired || on.injuryDays > 0) continue;
+    if (next.playerIds.includes(onId)) continue;
+    const pos = slotOf(next, offId);
+    if (!pos) continue;
+    const i = byPos[pos].findIndex((x) => x.playerId === offId);
+    byPos[pos][i] = { playerId: onId, rating: effectiveRating(on, pos) };
+    next.playerIds[next.playerIds.indexOf(offId)] = onId;
+    applied.push({ offId, onId });
+  }
+  return { sel: next, applied };
+}
+
+/** Goals scored in one half by one side: a Poisson draw on half the match rate. */
+function halfGoals(ctx: Ctx, lambda: number, count: number, sel: Selection, clubId: string, from: number, to: number): GoalEvent[] {
+  void lambda;
+  const out: GoalEvent[] = [];
+  for (let i = 0; i < count; i++) out.push({ minute: ctx.rng.int(from, to), clubId, ...pickScorer(ctx, sel) });
+  return out;
+}
+
+interface Settlement {
+  fixture: Fixture;
+  homeSel1: Selection; awaySel1: Selection;
+  homeSel2: Selection; awaySel2: Selection;
+  goals: GoalEvent[];
+  htScore: { home: number; away: number };
+  xgHome: { lambda: number; factors: GoalFactor[] };
+  xgAway: { lambda: number; factors: GoalFactor[] };
+  second: MatchReport['second'];
+  subs: MatchReport['subs'];
+  tacticChange: MatchReport['tacticChange'];
+  attendance: number;
+}
+
+/** Penalties, player stats, injuries and the report, once both halves are played. */
+function settle(ctx: Ctx, s: Settlement): MatchOutcome {
   const { world, rng } = ctx;
-  const homeClub = world.clubs[fixture.homeClubId];
-  const awayClub = world.clubs[fixture.awayClubId];
-  const homeSel = selectXI(world, homeClub.id, homeClub.tactic);
-  const awaySel = selectXI(world, awayClub.id, awayClub.tactic);
+  const { fixture } = s;
+  const homeGoals = s.goals.filter((g) => g.clubId === fixture.homeClubId).length;
+  const awayGoals = s.goals.length - homeGoals;
 
-  const homeSide: SideInput = { clubId: homeClub.id, lines: teamLines(world, homeSel), tactic: homeClub.tactic, managerAbility: managerAbility(world, homeClub.id), form: clubForm(world, homeClub.id), home: true };
-  const awaySide: SideInput = { clubId: awayClub.id, lines: teamLines(world, awaySel), tactic: awayClub.tactic, managerAbility: managerAbility(world, awayClub.id), form: clubForm(world, awayClub.id), home: false };
-
-  const xgHome = expectedGoals(homeSide, awaySide);
-  const xgAway = expectedGoals(awaySide, homeSide);
-
-  const homeGoals = rng.poisson(xgHome.lambda);
-  const awayGoals = rng.poisson(xgAway.lambda);
-
-  const goals: GoalEvent[] = [];
-  for (let i = 0; i < homeGoals; i++) goals.push({ minute: rng.int(1, 90), clubId: homeClub.id, ...pickScorer(ctx, homeSel) });
-  for (let i = 0; i < awayGoals; i++) goals.push({ minute: rng.int(1, 90), clubId: awayClub.id, ...pickScorer(ctx, awaySel) });
-  goals.sort((a, b) => a.minute - b.minute || a.clubId.localeCompare(b.clubId));
-
-  let winnerId: string | null = homeGoals > awayGoals ? homeClub.id : awayGoals > homeGoals ? awayClub.id : null;
+  let winnerId: string | null = homeGoals > awayGoals ? fixture.homeClubId : awayGoals > homeGoals ? fixture.awayClubId : null;
   let penalties: MatchReport['penalties'] = null;
   if (fixture.knockout && winnerId === null) {
     let h = 0, a = 0;
@@ -144,47 +192,197 @@ export function simulateMatch(ctx: Ctx, fixture: Fixture): MatchOutcome {
       if (i > 20) { h++; break; }
     }
     penalties = { home: h, away: a };
-    winnerId = h > a ? homeClub.id : awayClub.id;
+    winnerId = h > a ? fixture.homeClubId : fixture.awayClubId;
   }
 
   const playerStats: Record<string, PlayerMatchStats> = {};
   const injuries: { playerId: string; days: number }[] = [];
-  const tally = (sel: Selection, goalsFor: number, goalsAgainst: number, side: string) => {
-    for (const id of sel.playerIds) {
+  const tally = (first: Selection, second: Selection, goalsFor: number, goalsAgainst: number) => {
+    const ids = [...new Set([...first.playerIds, ...second.playerIds])].sort();
+    for (const id of ids) {
       const p: Player = world.players[id];
-      const scored = goals.filter((g) => g.scorerId === id).length;
-      const assisted = goals.filter((g) => g.assistId === id).length;
+      const minutes = (first.playerIds.includes(id) ? 45 : 0) + (second.playerIds.includes(id) ? 45 : 0);
+      const scored = s.goals.filter((g) => g.scorerId === id).length;
+      const assisted = s.goals.filter((g) => g.assistId === id).length;
       let rating = 6.0 + scored * 1.0 + assisted * 0.5;
-      if ((p.position === 'GK' || p.position === 'DF') && goalsAgainst === 0) rating += 0.6;
+      if ((p.position === 'GK' || p.position === 'DF') && goalsAgainst === 0 && minutes === 90) rating += 0.6;
       rating -= goalsAgainst * 0.12;
       rating += (goalsFor - goalsAgainst) * 0.15;
       rating += rng.normal(0, 0.35);
       playerStats[id] = {
-        minutes: 90,
+        minutes,
         goals: scored,
         assists: assisted,
         rating: clamp(Math.round(rating * 10) / 10, 3, 10),
-        fitnessDelta: -(14 - p.attrs.physical / 20),
+        fitnessDelta: -(14 - p.attrs.physical / 20) * (minutes / 90),
       };
-      if (rng.chance(INJURY_CHANCE)) injuries.push({ playerId: id, days: rng.int(3, 45) });
-      void side;
+      if (rng.chance(INJURY_CHANCE * (minutes / 90))) injuries.push({ playerId: id, days: rng.int(3, 45) });
     }
   };
-  tally(homeSel, homeGoals, awayGoals, 'home');
-  tally(awaySel, awayGoals, homeGoals, 'away');
+  tally(s.homeSel1, s.homeSel2, homeGoals, awayGoals);
+  tally(s.awaySel1, s.awaySel2, awayGoals, homeGoals);
 
   const report: MatchReport = {
+    homeXI: s.homeSel1.playerIds,
+    awayXI: s.awaySel1.playerIds,
+    homeFormation: s.homeSel1.formation,
+    awayFormation: s.awaySel1.formation,
+    lambda: { home: s.xgHome.lambda, away: s.xgAway.lambda },
+    factors: { home: s.xgHome.factors, away: s.xgAway.factors },
+    second: s.second,
+    goals: s.goals,
+    penalties,
+    attendance: s.attendance,
+    halfTimeScore: s.htScore,
+    subs: s.subs,
+    tacticChange: s.tacticChange,
+  };
+  return { homeGoals, awayGoals, winnerId, report, playerStats, injuries };
+}
+
+/** Plays the whole match in one pass: both halves on the same basis. */
+export function simulateMatch(ctx: Ctx, fixture: Fixture): MatchOutcome {
+  const { world, rng } = ctx;
+  const homeClub = world.clubs[fixture.homeClubId];
+  const awayClub = world.clubs[fixture.awayClubId];
+  const homeSel = selectXI(world, homeClub.id, homeClub.tactic);
+  const awaySel = selectXI(world, awayClub.id, awayClub.tactic);
+  const homeSide = sideInput(world, homeClub.id, homeSel, homeClub.tactic, true);
+  const awaySide = sideInput(world, awayClub.id, awaySel, awayClub.tactic, false);
+  const xgHome = expectedGoals(homeSide, awaySide);
+  const xgAway = expectedGoals(awaySide, homeSide);
+
+  const goals: GoalEvent[] = [];
+  let htHome = 0, htAway = 0;
+  for (const [from, to] of [[1, 45], [46, 90]] as const) {
+    const h = rng.poisson(xgHome.lambda / 2);
+    const a = rng.poisson(xgAway.lambda / 2);
+    goals.push(...halfGoals(ctx, xgHome.lambda, h, homeSel, homeClub.id, from, to));
+    goals.push(...halfGoals(ctx, xgAway.lambda, a, awaySel, awayClub.id, from, to));
+    if (from === 1) { htHome = h; htAway = a; }
+  }
+  goals.sort((a, b) => a.minute - b.minute || a.clubId.localeCompare(b.clubId));
+
+  return settle(ctx, {
+    fixture,
+    homeSel1: homeSel, awaySel1: awaySel, homeSel2: homeSel, awaySel2: awaySel,
+    goals,
+    htScore: { home: htHome, away: htAway },
+    xgHome, xgAway,
+    second: null,
+    subs: [],
+    tacticChange: null,
+    attendance: attendanceFor(world, fixture),
+  });
+}
+
+/** Plays the first 45 minutes and returns the state to pause on. */
+export function simulateFirstHalf(ctx: Ctx, fixture: Fixture, clubId: string): HalfTimeState {
+  const { world, rng } = ctx;
+  const homeClub = world.clubs[fixture.homeClubId];
+  const awayClub = world.clubs[fixture.awayClubId];
+  const homeSel = selectXI(world, homeClub.id, homeClub.tactic);
+  const awaySel = selectXI(world, awayClub.id, awayClub.tactic);
+  const homeSide = sideInput(world, homeClub.id, homeSel, homeClub.tactic, true);
+  const awaySide = sideInput(world, awayClub.id, awaySel, awayClub.tactic, false);
+  const xgHome = expectedGoals(homeSide, awaySide);
+  const xgAway = expectedGoals(awaySide, homeSide);
+
+  const h = rng.poisson(xgHome.lambda / 2);
+  const a = rng.poisson(xgAway.lambda / 2);
+  const goals = [
+    ...halfGoals(ctx, xgHome.lambda, h, homeSel, homeClub.id, 1, 45),
+    ...halfGoals(ctx, xgAway.lambda, a, awaySel, awayClub.id, 1, 45),
+  ].sort((x, y) => x.minute - y.minute || x.clubId.localeCompare(y.clubId));
+
+  return {
+    fixtureId: fixture.id,
+    clubId,
     homeXI: homeSel.playerIds,
     awayXI: awaySel.playerIds,
     homeFormation: homeSel.formation,
     awayFormation: awaySel.formation,
+    homeTactic: homeClub.tactic,
+    awayTactic: awayClub.tactic,
     lambda: { home: xgHome.lambda, away: xgAway.lambda },
     factors: { home: xgHome.factors, away: xgAway.factors },
     goals,
-    penalties,
+    homeGoals: h,
+    awayGoals: a,
     attendance: attendanceFor(world, fixture),
+    remainingFixtureIds: [],
   };
-  return { homeGoals, awayGoals, winnerId, report, playerStats, injuries };
+}
+
+/** Rebuilds a selection from stored ids so the second half continues the first. */
+function selectionFromIds(world: World, ids: string[], formation: string, tactic: Tactic): Selection {
+  const slots = FORMATIONS[tactic].slots;
+  const byPos: Selection['byPos'] = { GK: [], DF: [], MF: [], FW: [] };
+  const left = [...ids];
+  for (const pos of ['GK', 'DF', 'MF', 'FW'] as const) {
+    const want = slots[pos];
+    const natural = left.filter((id) => world.players[id]?.position === pos);
+    for (const id of natural.slice(0, want)) {
+      byPos[pos].push({ playerId: id, rating: effectiveRating(world.players[id], pos) });
+      left.splice(left.indexOf(id), 1);
+    }
+  }
+  for (const pos of ['GK', 'DF', 'MF', 'FW'] as const) {
+    while (byPos[pos].length < slots[pos] && left.length) {
+      const id = left.shift() as string;
+      byPos[pos].push({ playerId: id, rating: effectiveRating(world.players[id], pos) });
+    }
+  }
+  return { formation, playerIds: [...ids], byPos };
+}
+
+/**
+ * Plays the second half of a paused match. The human's tactic switch and
+ * substitutions change the second-half basis; the opposition plays on.
+ */
+export function finishMatch(ctx: Ctx, ht: HalfTimeState, decision: HalfTimeDecision = {}): MatchOutcome {
+  const { world, rng } = ctx;
+  const fixture = world.fixtures[ht.fixtureId];
+  const humanHome = ht.clubId === fixture.homeClubId;
+
+  const homeSel1 = selectionFromIds(world, ht.homeXI, ht.homeFormation, ht.homeTactic);
+  const awaySel1 = selectionFromIds(world, ht.awayXI, ht.awayFormation, ht.awayTactic);
+  const mine1 = humanHome ? homeSel1 : awaySel1;
+  const newTactic = decision.tactic ?? (humanHome ? ht.homeTactic : ht.awayTactic);
+  const oldTactic = humanHome ? ht.homeTactic : ht.awayTactic;
+  const { sel: mine2, applied } = applySubs(world, mine1, decision.subs ?? []);
+
+  const homeSel2 = humanHome ? mine2 : homeSel1;
+  const awaySel2 = humanHome ? awaySel1 : mine2;
+  const homeTactic2 = humanHome ? newTactic : ht.homeTactic;
+  const awayTactic2 = humanHome ? ht.awayTactic : newTactic;
+
+  const homeSide2 = sideInput(world, fixture.homeClubId, homeSel2, homeTactic2, true);
+  const awaySide2 = sideInput(world, fixture.awayClubId, awaySel2, awayTactic2, false);
+  const xg2Home = expectedGoals(homeSide2, awaySide2);
+  const xg2Away = expectedGoals(awaySide2, homeSide2);
+
+  const h2 = rng.poisson(xg2Home.lambda / 2);
+  const a2 = rng.poisson(xg2Away.lambda / 2);
+  const goals = [
+    ...ht.goals,
+    ...halfGoals(ctx, xg2Home.lambda, h2, homeSel2, fixture.homeClubId, 46, 90),
+    ...halfGoals(ctx, xg2Away.lambda, a2, awaySel2, fixture.awayClubId, 46, 90),
+  ].sort((x, y) => x.minute - y.minute || x.clubId.localeCompare(y.clubId));
+
+  const changed = newTactic !== oldTactic || applied.length > 0;
+  return settle(ctx, {
+    fixture,
+    homeSel1, awaySel1, homeSel2, awaySel2,
+    goals,
+    htScore: { home: ht.homeGoals, away: ht.awayGoals },
+    xgHome: { lambda: ht.lambda.home, factors: ht.factors.home },
+    xgAway: { lambda: ht.lambda.away, factors: ht.factors.away },
+    second: changed ? { lambda: { home: xg2Home.lambda, away: xg2Away.lambda }, factors: { home: xg2Home.factors, away: xg2Away.factors } } : null,
+    subs: applied.map((x) => ({ clubId: ht.clubId, offId: x.offId, onId: x.onId, minute: 46 })),
+    tacticChange: newTactic !== oldTactic ? { clubId: ht.clubId, from: oldTactic, to: newTactic } : null,
+    attendance: ht.attendance,
+  });
 }
 
 /** Human-readable explanation of a played fixture's expected goals. */
@@ -194,13 +392,20 @@ export function explainMatch(world: World, fixture: Fixture): string {
   const a = world.clubs[fixture.awayClubId];
   if (!r) return `${h.name} v ${a.name}: not played`;
   const lines: string[] = [];
-  lines.push(`${h.name} ${fixture.homeGoals} - ${fixture.awayGoals} ${a.name}  (day ${fixture.day}, ${r.homeFormation} v ${r.awayFormation}, att ${r.attendance})`);
+  lines.push(`${h.name} ${fixture.homeGoals} - ${fixture.awayGoals} ${a.name}  (HT ${r.halfTimeScore.home}-${r.halfTimeScore.away}, day ${fixture.day}, ${r.homeFormation} v ${r.awayFormation}, att ${r.attendance})`);
   const side = (label: string, factors: GoalFactor[], lambda: number) => {
     lines.push(`  ${label} xG ${lambda.toFixed(2)}:`);
     for (const f of factors) lines.push(`    ${f.name.padEnd(9)} x${f.multiplier.toFixed(3)}  ${f.note}`);
   };
   side(h.short, r.factors.home, r.lambda.home);
   side(a.short, r.factors.away, r.lambda.away);
+  if (r.second) {
+    lines.push(`  second half after the change:`);
+    side(h.short, r.second.factors.home, r.second.lambda.home);
+    side(a.short, r.second.factors.away, r.second.lambda.away);
+  }
+  if (r.tacticChange) lines.push(`  HT ${world.clubs[r.tacticChange.clubId].short} ${r.tacticChange.from} -> ${r.tacticChange.to}`);
+  for (const sub of r.subs) lines.push(`  ${sub.minute}' ${world.clubs[sub.clubId].short} ${world.players[sub.onId]?.name ?? sub.onId} for ${world.players[sub.offId]?.name ?? sub.offId}`);
   for (const g of r.goals) {
     const scorer = world.players[g.scorerId]?.name ?? g.scorerId;
     const assist = g.assistId ? ` (assist ${world.players[g.assistId]?.name ?? g.assistId})` : '';

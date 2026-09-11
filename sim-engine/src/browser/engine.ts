@@ -5,13 +5,13 @@
 import { createCtx, type Ctx } from '../core/context.js';
 import type { Event } from '../core/events.js';
 import { Rng, hashString } from '../core/rng.js';
-import { CUSTOM_CONFIG, DEFAULT_CONFIG, createEmptyWorld, isRealWorld, leagueOf, nationFromLeagueId, seasonDay, squad, tierOfClub, type Fixture, type World, type WorldConfig } from '../core/schema.js';
+import { CUSTOM_CONFIG, DEFAULT_CONFIG, createEmptyWorld, isRealWorld, leagueOf, nationFromLeagueId, seasonDay, squad, tierOfClub, type Fixture, type MatchReport, type World, type WorldConfig } from '../core/schema.js';
 import { generateWorld } from '../world/generate.js';
 import { computeGroupTable, computeTable, positionOf } from '../matchday/table.js';
-import { explainMatch } from '../matchday/match.js';
+import { explainMatch, MAX_SUBS, type HalfTimeDecision } from '../matchday/match.js';
 import { overall, averageRating } from '../rating.js';
 import { tierFromLeagueId } from '../core/schema.js';
-import { tickDay } from '../sim/tick.js';
+import { resumeHalfTime as resumeHalfTimeTick, tickDay, type TickOptions } from '../sim/tick.js';
 import { seasonMetrics, type SeasonMetrics } from '../sim/metrics.js';
 import { checkInvariants } from '../sim/invariants.js';
 import * as actions from '../actions.js';
@@ -41,8 +41,32 @@ export function snapshotGame(game: Game): GameSnapshot {
 
 export function resumeGame(snapshot: GameSnapshot): Game {
   const world = structuredClone(snapshot.world);
+  migrate(world);
   const ctx = createCtx(world, new Rng(snapshot.rng));
   return { ctx, world, seasonLog: ctx.log, seasons: [] };
+}
+
+/**
+ * Fills in fields added after a save was written, so careers started on an
+ * older build keep working. The half-time score of an old match is recovered
+ * from the goal minutes.
+ */
+function migrate(world: World): void {
+  const w = world as World & { halfTime?: World['halfTime'] };
+  if (w.halfTime === undefined) w.halfTime = null;
+  for (const f of Object.values(world.fixtures)) {
+    const r = f.report as (MatchReport & { subs?: MatchReport['subs']; second?: MatchReport['second']; tacticChange?: MatchReport['tacticChange']; halfTimeScore?: MatchReport['halfTimeScore'] }) | null;
+    if (!r) continue;
+    if (!r.subs) r.subs = [];
+    if (r.second === undefined) r.second = null;
+    if (r.tacticChange === undefined) r.tacticChange = null;
+    if (!r.halfTimeScore) {
+      r.halfTimeScore = {
+        home: r.goals.filter((g) => g.minute <= 45 && g.clubId === f.homeClubId).length,
+        away: r.goals.filter((g) => g.minute <= 45 && g.clubId === f.awayClubId).length,
+      };
+    }
+  }
 }
 
 export function createGame(config: Partial<WorldConfig> = {}): Game {
@@ -54,20 +78,37 @@ export function createGame(config: Partial<WorldConfig> = {}): Game {
   return { ctx, world, seasonLog: ctx.log, seasons: [] };
 }
 
-/** Advances `days` days. Returns the events emitted, and rolls season metrics when a season ends. */
-export function step(game: Game, days: number): Event[] {
+/**
+ * Advances `days` days. Returns the events emitted, and rolls season metrics
+ * when a season ends. Stops early when a match pauses at half time.
+ */
+export function step(game: Game, days: number, opts: TickOptions = {}): Event[] {
   const { ctx, world } = game;
   const start = ctx.log.length;
   for (let i = 0; i < days; i++) {
-    tickDay(ctx);
-    if (seasonDay(world) === world.seasonLength - 1) {
-      game.seasons.push(seasonMetrics(world, world.season, ctx.log));
-      const emitted = ctx.log.slice(start);
-      ctx.log.length = 0;
-      return emitted;
-    }
+    tickDay(ctx, opts);
+    if (world.halfTime) return ctx.log.slice(start);
+    const rolled = rollSeason(game, start);
+    if (rolled) return rolled;
   }
   return ctx.log.slice(start);
+}
+
+/** Plays the second half of a paused match and finishes that day. */
+export function resumeHalfTime(game: Game, decision: HalfTimeDecision = {}): Event[] {
+  const { ctx } = game;
+  const start = ctx.log.length;
+  resumeHalfTimeTick(ctx, decision);
+  return rollSeason(game, start) ?? ctx.log.slice(start);
+}
+
+function rollSeason(game: Game, start: number): Event[] | null {
+  const { ctx, world } = game;
+  if (seasonDay(world) !== world.seasonLength - 1) return null;
+  game.seasons.push(seasonMetrics(world, world.season, ctx.log));
+  const emitted = ctx.log.slice(start);
+  ctx.log.length = 0;
+  return emitted;
 }
 
 export function daysLeftInSeason(world: World): number {
@@ -100,14 +141,15 @@ export function careerReport(game: Game): string | null {
 
 export const api = {
   ...actions,
-  createGame, resumeGame, snapshotGame, step, daysLeftInSeason, quickHash, fixturesOnDay, careerReport, selectXI, contractOf, wageDemand, playerValue, effectiveRating, inTransferWindow,
+  createGame, resumeGame, snapshotGame, step, resumeHalfTime, MAX_SUBS, daysLeftInSeason, quickHash, fixturesOnDay, careerReport, selectXI, contractOf, wageDemand, playerValue, effectiveRating, inTransferWindow,
   computeTable, computeGroupTable, positionOf, explainMatch, overall, averageRating, squad, seasonDay, leagueOf, tierFromLeagueId, tierOfClub, nationFromLeagueId, isRealWorld, checkInvariants,
   weeklyWageBill, squadStrength, signingsThisWindow, currencyFor, money, ordinal, roundLabel,
   DEFAULT_CONFIG, CUSTOM_CONFIG, NATIONS, REAL_WORLD, CONTINENTAL_CUP_NAME, SUMMER_WINDOW, WINTER_WINDOW,
 };
 export default api;
 
-export type { World, WorldConfig, Player, Club, Manager, Contract, Fixture, Competition, CompetitionLeague, CompetitionCup, MatchReport, GoalFactor, GoalEvent, Tactic, Position, TransferRecord, SeasonSummary, Nation, NewsItem, NewsCategory, TransferBid } from '../core/schema.js';
+export type { HalfTimeDecision } from '../matchday/match.js';
+export type { World, WorldConfig, Player, Club, Manager, Contract, Fixture, Competition, CompetitionLeague, CompetitionCup, MatchReport, GoalFactor, GoalEvent, Tactic, Position, TransferRecord, SeasonSummary, Nation, NewsItem, NewsCategory, TransferBid, HalfTimeState, MatchSub } from '../core/schema.js';
 export type { Event, EventType } from '../core/events.js';
 export type { Standing } from '../matchday/table.js';
 export type { Selection } from '../matchday/xi.js';

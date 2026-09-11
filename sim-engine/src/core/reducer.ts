@@ -182,8 +182,13 @@ export function reduce(w: World, e: Event): void {
       }
       break;
     }
+    case 'HALF_TIME_REACHED': {
+      w.halfTime = structuredClone(e.payload.state);
+      break;
+    }
     case 'MATCH_PLAYED': {
       const { fixtureId, homeGoals, awayGoals, winnerId, report, playerStats } = e.payload;
+      if (w.halfTime?.fixtureId === fixtureId) w.halfTime = null;
       const f = w.fixtures[fixtureId];
       f.played = true;
       f.homeGoals = homeGoals;

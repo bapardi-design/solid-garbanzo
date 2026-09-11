@@ -1,6 +1,4 @@
-import type {
-  Attributes, Club, Competition, Contract, Fixture, Manager, MatchReport, Nation, NewsItem, Player, SeasonSummary, Tactic, TransferBid, TransferRecord, WorldConfig,
-} from './schema.js';
+import type { Attributes, Club, Competition, Contract, Fixture, HalfTimeState, Manager, MatchReport, Nation, NewsItem, Player, SeasonSummary, Tactic, TransferBid, TransferRecord, WorldConfig } from './schema.js';
 
 export interface PlayerMatchStats {
   minutes: number;
@@ -32,6 +30,7 @@ export interface EventPayloads {
     report: MatchReport;
     playerStats: Record<string, PlayerMatchStats>;
   };
+  HALF_TIME_REACHED: { state: HalfTimeState };
   PLAYER_INJURED: { playerId: string; days: number };
   MORALE_CHANGED: { deltas: Record<string, number>; reason: string };
   FINANCE_POSTED: { entries: FinanceEntry[] };

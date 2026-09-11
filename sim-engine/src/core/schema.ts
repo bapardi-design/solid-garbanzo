@@ -154,16 +154,56 @@ export interface GoalEvent {
   assistId: string | null;
 }
 
+/** A half-time substitution. Minute is always 46 for now. */
+export interface MatchSub {
+  clubId: string;
+  offId: string;
+  onId: string;
+  minute: number;
+}
+
 export interface MatchReport {
   homeXI: string[];
   awayXI: string[];
   homeFormation: string;
   awayFormation: string;
+  /** Pre-match expected goals over 90 minutes. */
   lambda: { home: number; away: number };
   factors: { home: GoalFactor[]; away: GoalFactor[] };
+  /** Set when the second half was played on a different basis (a half-time change). */
+  second: { lambda: { home: number; away: number }; factors: { home: GoalFactor[]; away: GoalFactor[] } } | null;
   goals: GoalEvent[];
   penalties: { home: number; away: number } | null;
   attendance: number;
+  /** Score after 45 minutes. */
+  halfTimeScore: { home: number; away: number };
+  subs: MatchSub[];
+  /** Tactic switched at half time, when one was. */
+  tacticChange: { clubId: string; from: Tactic; to: Tactic } | null;
+}
+
+/**
+ * A match of the human manager's paused at half time. Lives in the world so it
+ * survives a save and reload; cleared when the match is finished.
+ */
+export interface HalfTimeState {
+  fixtureId: string;
+  /** The human manager's club. */
+  clubId: string;
+  homeXI: string[];
+  awayXI: string[];
+  homeFormation: string;
+  awayFormation: string;
+  homeTactic: Tactic;
+  awayTactic: Tactic;
+  lambda: { home: number; away: number };
+  factors: { home: GoalFactor[]; away: GoalFactor[] };
+  goals: GoalEvent[];
+  homeGoals: number;
+  awayGoals: number;
+  attendance: number;
+  /** Fixtures of the same day still to play once the match resumes. */
+  remainingFixtureIds: string[];
 }
 
 export interface Fixture {
@@ -300,6 +340,8 @@ export interface World {
   humanManagerId: string | null;
   /** Set when the human manager loses the job. */
   careerOver: { day: number; season: number; reason: string } | null;
+  /** The human's match paused at half time, if one is. */
+  halfTime: HalfTimeState | null;
 }
 
 export const DEFAULT_CONFIG: WorldConfig = {
@@ -342,6 +384,7 @@ export function createEmptyWorld(config: WorldConfig): World {
     humanClubId: null,
     humanManagerId: null,
     careerOver: null,
+    halfTime: null,
   };
 }
 

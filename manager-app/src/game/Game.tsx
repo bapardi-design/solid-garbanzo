@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import Engine, { type Event, type Fixture } from 'sim-engine';
+import Engine, { type Event, type Fixture, type HalfTimeDecision } from 'sim-engine';
 import { LIMITS } from '@/lib/entitlements';
 import { useSession } from './session';
 import { cloud, local, StoreError, type CareerRecord } from './store';
@@ -17,7 +17,7 @@ import { FixturesPanel } from './panels/Fixtures';
 import { CompetitionsPanel } from './panels/Competitions';
 import { FinancesPanel } from './panels/Finances';
 import { ClubPanel, JobsPanel } from './panels/Club';
-import { MatchLive } from './panels/MatchLive';
+import { ManagedMatch, MatchLive } from './panels/MatchLive';
 import { Crest, PlayerDrawer } from './panels/shared';
 
 type GameT = ReturnType<typeof Engine.resumeGame>;
@@ -44,6 +44,9 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
   const [paywall, setPaywall] = useState(false);
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved');
   const [stopAtMilestones, setStopAtMilestones] = useState(true);
+  const [manageLive, setManageLive] = useState(true);
+  // Fixture id of the match being managed live; kept after the pause clears so the modal survives to full time.
+  const [managed, setManaged] = useState<string | null>(() => game.world.halfTime?.fixtureId ?? null);
 
   const { world, ctx } = gameRef.current;
   const clubId = world.humanClubId ?? record.clubId;
@@ -69,7 +72,7 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
   function continueToNextMatch() {
     if (busy) return;
     const g = gameRef.current;
-    if (g.world.careerOver) return;
+    if (g.world.careerOver || g.world.halfTime) return;
     if (Engine.daysLeftInSeason(g.world) === 0 && g.world.season >= maxSeasons) { setPaywall(true); return; }
     setBusy(true); setProgress(0); setNotice(null);
     const start = g.world.day;
@@ -78,8 +81,9 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
       const w = g.world;
       const cid = w.humanClubId ?? clubId;
       const before = w.day;
-      const events: Event[] = Engine.step(g, 1);
+      const events: Event[] = Engine.step(g, 1, { halfTime: manageLive });
       const myMatch = events.find((e) => e.type === 'MATCH_PLAYED' && (w.fixtures[e.payload.fixtureId].homeClubId === cid || w.fixtures[e.payload.fixtureId].awayClubId === cid));
+      const paused = w.halfTime !== null;
       const seasonEnd = Engine.daysLeftInSeason(w) === 0;
       const sd = Engine.seasonDay(w);
       const bid = events.some((e) => e.type === 'BID_RECEIVED');
@@ -89,11 +93,13 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
         : sd === Engine.WINTER_WINDOW[0] ? 'The winter window is open for four weeks.'
         : sd === Engine.WINTER_WINDOW[1] ? 'Deadline day for the winter window.'
         : bid ? 'A club has made an offer for one of your players. Answer it under Transfers → Offers.' : null;
-      const stop = myMatch !== undefined || w.careerOver !== null || w.day - start >= limit || (seasonEnd && w.day > before) || milestone !== null;
+      const stop = paused || myMatch !== undefined || w.careerOver !== null || w.day - start >= limit || (seasonEnd && w.day > before) || milestone !== null;
       setProgress(Math.min(100, ((w.day - start) / 10) * 100));
       if (stop) {
         setBusy(false); setProgress(null); rerender(); void save();
-        if (myMatch && myMatch.type === 'MATCH_PLAYED') {
+        if (paused) {
+          setManaged(w.halfTime!.fixtureId);
+        } else if (myMatch && myMatch.type === 'MATCH_PLAYED') {
           const f = w.fixtures[myMatch.payload.fixtureId];
           setLastFixtureId(f.id);
           setLive(f);
@@ -104,6 +110,17 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
     };
     tick();
   }
+
+  /** Plays the second half after the half-time decision and returns the finished fixture. */
+  const resumeMatch = useCallback((decision: HalfTimeDecision): Fixture => {
+    const g = gameRef.current;
+    const fixtureId = g.world.halfTime!.fixtureId;
+    Engine.resumeHalfTime(g, decision);
+    setLastFixtureId(fixtureId);
+    rerender();
+    void save();
+    return g.world.fixtures[fixtureId];
+  }, [rerender, save]);
 
   function openReport() {
     const g = gameRef.current;
@@ -149,6 +166,7 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
         <div className="actions">
           <span className="muted mono">{saveState === 'saving' ? 'saving…' : saveState === 'saved' ? 'saved' : saveState === 'error' ? 'not saved' : 'unsaved'}</span>
           <label className="muted small"><input type="checkbox" checked={stopAtMilestones} onChange={(e) => setStopAtMilestones(e.target.checked)} /> stop at windows and offers</label>
+          <label className="muted small"><input type="checkbox" checked={manageLive} onChange={(e) => setManageLive(e.target.checked)} /> manage at half-time</label>
           <button className="btn" onClick={() => void save()} disabled={busy}>Save</button>
           <button className="btn" onClick={openReport} disabled={busy || reportBusy}>Season report</button>
           <Link href="/play" className="btn">Careers</Link>
@@ -183,6 +201,7 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
       {tab === 'jobs' ? <JobsPanel game={gameRef.current} onAction={(r) => { afterAction(r); if (r.ok) setTab('home'); }} /> : null}
       {player ? <PlayerDrawer game={gameRef.current} playerId={player} clubId={clubId} onClose={() => setPlayer(null)} onAction={(r) => { afterAction(r); }} /> : null}
       {live ? <MatchLive game={gameRef.current} fixture={live} clubId={clubId} onDone={() => { setLive(null); setTab('home'); }} /> : null}
+      {!live && managed ? <ManagedMatch key={managed} game={gameRef.current} clubId={clubId} onResume={resumeMatch} onDone={() => { setManaged(null); rerender(); setTab('home'); }} /> : null}
       {paywall ? (
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="paywall-title">
           <div className="modal">

@@ -4,11 +4,12 @@
  */
 import type { Ctx } from './core/context.js';
 import { clamp, hashString } from './core/rng.js';
-import type { Club, Manager, NewsCategory, NewsItem, Player, Position, Tactic, TransferRecord, World } from './core/schema.js';
+import type { Club, GoalEvent, Manager, NewsCategory, NewsItem, Player, Position, Tactic, TransferRecord, World } from './core/schema.js';
 import { contractOf, isRealWorld, nextId, squad, tierOfClub } from './core/schema.js';
 import { overall, playerValue, wageDemand, weeklyWageBill } from './rating.js';
 import { MAX_SQUAD, MIN_PER_POSITION, buildMarket, inTransferWindow, type Listing } from './engines/transfers.js';
 import { computeTable, positionOf } from './matchday/table.js';
+import { MAX_SUBS } from './matchday/match.js';
 import { contractLengthFor, makeContract } from './world/generate.js';
 import { leagueOf } from './core/schema.js';
 
@@ -374,6 +375,60 @@ export function newsFeed(world: World, q: NewsQuery = {}): NewsItem[] {
     out.push(n);
   }
   return out;
+}
+
+export interface HalfTimeView {
+  fixtureId: string;
+  competitionName: string;
+  homeClubId: string;
+  awayClubId: string;
+  homeGoals: number;
+  awayGoals: number;
+  goals: GoalEvent[];
+  /** Expected goals in the first half. */
+  xg: { home: number; away: number };
+  mine: {
+    clubId: string;
+    home: boolean;
+    tactic: Tactic;
+    formation: string;
+    /** On the pitch, in formation order. */
+    xi: { playerId: string; pos: Position }[];
+    /** Fit players on the bench, strongest first. */
+    bench: string[];
+  };
+  maxSubs: number;
+}
+
+/** The paused match, ready for the half-time screen, or null if none. */
+export function halfTimeView(world: World): HalfTimeView | null {
+  const ht = world.halfTime;
+  if (!ht) return null;
+  const fixture = world.fixtures[ht.fixtureId];
+  const home = ht.clubId === fixture.homeClubId;
+  const xiIds = home ? ht.homeXI : ht.awayXI;
+  const tactic = home ? ht.homeTactic : ht.awayTactic;
+  const formation = home ? ht.homeFormation : ht.awayFormation;
+  const order: Position[] = ['GK', 'DF', 'MF', 'FW'];
+  const xi = [...xiIds]
+    .map((playerId) => ({ playerId, pos: world.players[playerId]?.position ?? 'MF' as Position }))
+    .sort((a, b) => order.indexOf(a.pos) - order.indexOf(b.pos) || overall(world.players[b.playerId]) - overall(world.players[a.playerId]));
+  const bench = squad(world, ht.clubId)
+    .filter((p) => !p.retired && p.injuryDays === 0 && !xiIds.includes(p.id))
+    .sort((a, b) => overall(b) - overall(a))
+    .map((p) => p.id);
+  return {
+    fixtureId: ht.fixtureId,
+    competitionName: world.competitions[fixture.competitionId]?.name ?? '',
+    homeClubId: fixture.homeClubId,
+    awayClubId: fixture.awayClubId,
+    homeGoals: ht.homeGoals,
+    awayGoals: ht.awayGoals,
+    goals: ht.goals,
+    xg: { home: ht.lambda.home / 2, away: ht.lambda.away / 2 },
+    mine: { clubId: ht.clubId, home, tactic, formation, xi, bench },
+    maxSubs: MAX_SUBS,
+  };
 }
 
 export { respondToBid } from './engines/bids.js';
