@@ -1,7 +1,8 @@
 /** Season lifecycle: per-nation competitions, the continental cup, and end-of-season rollover. */
 import type { Ctx } from '../core/context.js';
 import type { CompetitionCup, CompetitionLeague, FinanceEntry, Nation, SeasonSummary } from '../core/index.js';
-import { isRealWorld, tierCode, tierFromLeagueId } from '../core/schema.js';
+import { isRealWorld, squad, tierCode, tierFromLeagueId } from '../core/schema.js';
+import { clamp } from '../core/rng.js';
 import { continentalEntryFee, cupPrize, groupWinBonus, prizeMoney, setBudgets } from './finance.js';
 import { academyBonus } from './boardroom.js';
 import { chooseTactics, expireManagerContracts, fillManagerVacancies, boardReview } from './ai.js';
@@ -90,7 +91,11 @@ export function startSeason(ctx: Ctx, season: number): void {
   // Youth intake.
   for (const club of Object.values(world.clubs)) {
     const academy = academyBonus(world, club.id);
-    const intake = rng.int(2, 3) + (academy >= 5 ? 1 : 0);
+    // Sized to the room the club has. A fixed two a year left squads shrinking
+    // by a player a season as age took its toll; a fixed four filled them to
+    // the cap and the transfer market seized up.
+    const room = world.config.squadSize + 2 - squad(world, club.id).length;
+    const intake = clamp(rng.int(2, 4) + (academy >= 5 ? 1 : 0) + (room > 4 ? 1 : 0), 1, Math.max(1, room));
     for (let i = 0; i < intake; i++) {
       // In the shape of a real squad: one keeper for every two forwards. An
       // even split floods the world with keepers who never get a game and
