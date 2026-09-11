@@ -150,10 +150,15 @@ function injuryNews(ctx: Ctx, events: Event[]): Draft[] {
   return drafts;
 }
 
+/**
+ * Taken from the day's fixtures rather than the day's events: a match of the
+ * human's can pause at half time, and after a reload the events emitted before
+ * the pause are no longer in hand.
+ */
 function matchNews(ctx: Ctx, events: Event[]): Draft[] {
   const { world } = ctx;
   const drafts: Draft[] = [];
-  const played = events.filter((e): e is Event<'MATCH_PLAYED'> => e.type === 'MATCH_PLAYED').map((e) => world.fixtures[e.payload.fixtureId]);
+  const played = [...(world.idx.fixturesByDay[world.day] ?? [])].sort().map((id) => world.fixtures[id]).filter((f) => f.played);
   if (played.length === 0) return drafts;
   const byComp = new Map<string, typeof played>();
   for (const f of played) (byComp.get(f.competitionId) ?? byComp.set(f.competitionId, []).get(f.competitionId)!).push(f);
@@ -183,6 +188,8 @@ function matchNews(ctx: Ctx, events: Event[]): Draft[] {
     const scorers = mine.report.goals.map((g) => `${world.players[g.scorerId].name} ${g.minute}'${g.clubId === home.id ? '' : ' (a)'}`).join(', ');
     drafts.push({ category: 'match', headline: `${home.name} ${mine.homeGoals}-${mine.awayGoals} ${away.name}: ${won ? `${us.short} ${mine.knockout ? 'go through' : 'take the points'}` : drew ? 'honours even' : `${us.short} beaten`}`, body: `${competitionName(world, mine.competitionId)}, attendance ${mine.report.attendance.toLocaleString('en-GB')}.\nScorers: ${scorers || 'none'}.\nExpected goals: ${home.short} ${mine.report.lambda.home.toFixed(2)}, ${away.short} ${mine.report.lambda.away.toFixed(2)}.`, clubIds: [us.id] });
   }
+  // Cup winners come from events: the rounds advance after the day's matches,
+  // so these are always in hand, pause or no pause.
   for (const e of events) {
     if (e.type === 'CUP_ROUND_ADVANCED' && e.payload.winnerId) {
       const comp = world.competitions[e.payload.competitionId];
