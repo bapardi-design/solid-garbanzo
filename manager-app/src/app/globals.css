@@ -193,6 +193,33 @@ tr.zone-cont td:first-child{box-shadow:inset 3px 0 var(--s1)}
 .commentary li.ev-goal{font-weight:600;background:var(--surface-2);border-left:3px solid var(--accent)}
 .commentary li.ev-goal:not(.mine){border-left-color:var(--critical)}
 .commentary li.ev-half,.commentary li.ev-end{font-family:var(--display);text-transform:uppercase;letter-spacing:.06em}
+
+/* Cards: a yellow and a red, drawn rather than named */
+.card-y,.card-r{display:inline-block;width:9px;height:12px;border-radius:1px;vertical-align:-1px}
+.card-y{background:#e8b923}
+.card-r{background:#d23b30}
+.commentary li.ev-card{border-left:3px solid #e8b923}
+.commentary li.ev-red{border-left:3px solid #d23b30;font-weight:600;background:var(--surface-2)}
+.commentary li.ev-card::before,.commentary li.ev-red::before{content:"";display:inline-block;width:8px;height:11px;border-radius:1px;margin-right:6px;vertical-align:-1px;background:#e8b923}
+.commentary li.ev-red::before{background:#d23b30}
+.cards-list{list-style:none;padding:0;margin:8px 0 0;font-size:13px}
+.cards-list li{padding:2px 0;border-top:1px dotted var(--rule);display:flex;align-items:center;gap:6px}
+.cards-list .min{font-family:var(--mono);width:32px;color:var(--muted)}
+.cards-list .who{font-family:var(--display);font-weight:600;width:40px;letter-spacing:.06em}
+.cards-list a{cursor:pointer}
+.cards-list a:hover{color:var(--accent);text-decoration:underline}
+.cards-list .muted{margin-left:auto;font-size:11px}
+td .card-y,td .card-r{margin-right:2px}
+td .card-y::after,td .card-r::after{content:none}
+.squad td .card-y,.squad td .card-r{width:auto;height:auto;background:none;border-radius:0;font-family:var(--mono);padding:0 3px;border-radius:2px}
+.squad td .card-y{background:#e8b923;color:#2a2100}
+.squad td .card-r{background:#d23b30;color:#fff}
+.pill.hot{border-color:var(--s2);color:var(--s2)}
+b.derby{font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;font-size:10px;color:var(--s2)}
+.derby-note{font-family:var(--display);font-size:14px;color:var(--s2);margin:0 0 4px}
+.warn-note{font-size:12px;color:var(--critical);margin:0 0 4px}
+.booked-note{font-size:12px;color:var(--ink-2);margin:0 0 8px;display:flex;align-items:center;gap:6px}
+.xi-list .nm .card-y{margin-left:6px}
 .report{margin-bottom:12px}
 label.small{font-size:11px}
 

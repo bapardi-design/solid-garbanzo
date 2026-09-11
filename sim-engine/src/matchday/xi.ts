@@ -17,8 +17,9 @@ export interface Selection {
   byPos: Record<Position, { playerId: string; rating: number }[]>;
 }
 
+/** Fit, not banned, and still on the books. */
 export function availablePlayers(world: World, clubId: string): Player[] {
-  return squad(world, clubId).filter((p) => !p.retired && p.injuryDays === 0);
+  return squad(world, clubId).filter((p) => !p.retired && p.injuryDays === 0 && p.suspension === 0);
 }
 
 export function selectXI(world: World, clubId: string, tactic: Tactic): Selection {

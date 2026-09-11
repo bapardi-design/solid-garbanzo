@@ -5,10 +5,10 @@
 import { createCtx, type Ctx } from '../core/context.js';
 import type { Event } from '../core/events.js';
 import { Rng, hashString } from '../core/rng.js';
-import { CUSTOM_CONFIG, DEFAULT_CONFIG, createEmptyWorld, isRealWorld, leagueOf, nationFromLeagueId, seasonDay, squad, tierOfClub, type Fixture, type MatchReport, type World, type WorldConfig } from '../core/schema.js';
+import { CUSTOM_CONFIG, DEFAULT_CONFIG, createEmptyWorld, isRealWorld, leagueOf, nationFromLeagueId, seasonDay, squad, tierOfClub, type CardEvent, type Fixture, type MatchReport, type World, type WorldConfig } from '../core/schema.js';
 import { generateWorld } from '../world/generate.js';
 import { computeGroupTable, computeTable, positionOf } from '../matchday/table.js';
-import { explainMatch, MAX_SUBS, type HalfTimeDecision } from '../matchday/match.js';
+import { explainMatch, isDerby, MAX_SUBS, type HalfTimeDecision } from '../matchday/match.js';
 import { overall, averageRating } from '../rating.js';
 import { tierFromLeagueId } from '../core/schema.js';
 import { resumeHalfTime as resumeHalfTimeTick, tickDay, type TickOptions } from '../sim/tick.js';
@@ -53,12 +53,30 @@ export function resumeGame(snapshot: GameSnapshot): Game {
  * from the goal minutes.
  */
 function migrate(world: World): void {
-  const w = world as World & { halfTime?: World['halfTime'] };
+  const w = world as World & { halfTime?: World['halfTime']; boardroom?: World['boardroom'] };
   if (w.halfTime === undefined) w.halfTime = null;
+  if (w.boardroom === undefined) w.boardroom = null;
+  if (w.halfTime) {
+    // A save paused at half time, written before cards existed.
+    const ht = w.halfTime as World['halfTime'] & { cards?: CardEvent[]; bookedHome?: string[]; bookedAway?: string[]; derby?: boolean };
+    if (!ht.cards) ht.cards = [];
+    if (!ht.bookedHome) ht.bookedHome = [];
+    if (!ht.bookedAway) ht.bookedAway = [];
+    if (typeof ht.derby !== 'boolean') ht.derby = false;
+  }
+  for (const p of Object.values(world.players)) {
+    const q = p as typeof p & { suspension?: number };
+    if (typeof q.suspension !== 'number') q.suspension = 0;
+    const st = p.stats as typeof p.stats & { yellows?: number; reds?: number };
+    if (typeof st.yellows !== 'number') st.yellows = 0;
+    if (typeof st.reds !== 'number') st.reds = 0;
+  }
   for (const f of Object.values(world.fixtures)) {
-    const r = f.report as (MatchReport & { subs?: MatchReport['subs']; second?: MatchReport['second']; tacticChange?: MatchReport['tacticChange']; halfTimeScore?: MatchReport['halfTimeScore'] }) | null;
+    const r = f.report as (MatchReport & { subs?: MatchReport['subs']; second?: MatchReport['second']; tacticChange?: MatchReport['tacticChange']; halfTimeScore?: MatchReport['halfTimeScore']; cards?: MatchReport['cards']; derby?: boolean }) | null;
     if (!r) continue;
     if (!r.subs) r.subs = [];
+    if (!r.cards) r.cards = [];
+    if (typeof r.derby !== 'boolean') r.derby = false;
     if (r.second === undefined) r.second = null;
     if (r.tacticChange === undefined) r.tacticChange = null;
     if (!r.halfTimeScore) {
@@ -143,14 +161,14 @@ export function careerReport(game: Game): string | null {
 export const api = {
   ...actions,
   createGame, resumeGame, snapshotGame, step, resumeHalfTime, MAX_SUBS, daysLeftInSeason, quickHash, fixturesOnDay, careerReport, selectXI, contractOf, wageDemand, playerValue, effectiveRating, inTransferWindow,
-  computeTable, computeGroupTable, positionOf, explainMatch, overall, averageRating, squad, seasonDay, leagueOf, tierFromLeagueId, tierOfClub, nationFromLeagueId, isRealWorld, checkInvariants,
+  computeTable, computeGroupTable, positionOf, explainMatch, isDerby, overall, averageRating, squad, seasonDay, leagueOf, tierFromLeagueId, tierOfClub, nationFromLeagueId, isRealWorld, checkInvariants,
   weeklyWageBill, squadStrength, signingsThisWindow, currencyFor, money, ordinal, roundLabel, MAX_FACILITY_LEVEL,
   DEFAULT_CONFIG, CUSTOM_CONFIG, NATIONS, REAL_WORLD, CONTINENTAL_CUP_NAME, SUMMER_WINDOW, WINTER_WINDOW,
 };
 export default api;
 
 export type { HalfTimeDecision } from '../matchday/match.js';
-export type { World, WorldConfig, Player, Club, Manager, Contract, Fixture, Competition, CompetitionLeague, CompetitionCup, MatchReport, GoalFactor, GoalEvent, Tactic, Position, TransferRecord, SeasonSummary, Nation, NewsItem, NewsCategory, TransferBid, HalfTimeState, MatchSub, Boardroom, Decision, DecisionOption, DecisionKind, Facilities } from '../core/schema.js';
+export type { World, WorldConfig, Player, Club, Manager, Contract, Fixture, Competition, CompetitionLeague, CompetitionCup, MatchReport, GoalFactor, GoalEvent, CardEvent, CardKind, Tactic, Position, TransferRecord, SeasonSummary, Nation, NewsItem, NewsCategory, TransferBid, HalfTimeState, MatchSub, Boardroom, Decision, DecisionOption, DecisionKind, Facilities } from '../core/schema.js';
 export type { Event, EventType } from '../core/events.js';
 export type { Standing } from '../matchday/table.js';
 export type { Selection } from '../matchday/xi.js';

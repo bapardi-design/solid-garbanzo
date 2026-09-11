@@ -21,6 +21,9 @@ export function HomePanel({ game, clubId, board, nextFixture, lastFixture, onPla
   const headlines = Engine.newsFeed(world, { limit: 6 });
   const bids = world.pendingBids;
   const opp = nextFixture ? world.clubs[nextFixture.homeClubId === clubId ? nextFixture.awayClubId : nextFixture.homeClubId] : null;
+  const mySquad = Engine.squad(world, clubId);
+  const banned = mySquad.filter((p) => p.suspension > 0).sort((a, b) => b.suspension - a.suspension);
+  const onEdge = mySquad.filter((p) => p.suspension === 0 && p.stats.yellows > 0 && p.stats.yellows % 5 === 4);
   const oppLeague = opp ? Engine.leagueOf(world, opp.id) : null;
   const oppTable = oppLeague ? Engine.computeTable(world, oppLeague) : [];
   const windowOpen = Engine.inTransferWindow(world);
@@ -36,13 +39,16 @@ export function HomePanel({ game, clubId, board, nextFixture, lastFixture, onPla
           </div>
         ) : null}
         <section className="panel">
-          <header><h3>Next match</h3>{nextFixture ? <span className="muted">{dayLabel(nextFixture.day - world.seasonStartDay)} · {world.competitions[nextFixture.competitionId]?.name}</span> : null}</header>
+          <header><h3>Next match</h3>{nextFixture ? <span className="muted">{dayLabel(nextFixture.day - world.seasonStartDay)} · {world.competitions[nextFixture.competitionId]?.name}{Engine.isDerby(world, nextFixture) ? <> · <span className="pill hot">derby</span></> : null}</span> : null}</header>
           <div className="body">
             {nextFixture && opp ? (
               <div className="versus">
                 <div className="team"><Crest name={world.clubs[nextFixture.homeClubId].name} short={world.clubs[nextFixture.homeClubId].short} size="l" /><b>{world.clubs[nextFixture.homeClubId].name}</b></div>
                 <div className="v">v</div>
                 <div className="team"><Crest name={world.clubs[nextFixture.awayClubId].name} short={world.clubs[nextFixture.awayClubId].short} size="l" /><b>{world.clubs[nextFixture.awayClubId].name}</b></div>
+                {Engine.isDerby(world, nextFixture) ? <p className="derby-note span">A city derby. The ground will be full and the referee busy.</p> : null}
+                {banned.length ? <p className="warn-note span">Suspended: {banned.map((p) => `${p.name} (${p.suspension})`).join(', ')}.</p> : null}
+                {onEdge.length ? <p className="muted small span">One booking from a ban: {onEdge.map((p) => p.name).join(', ')}.</p> : null}
                 <p className="muted span">{opp.name} are {oppStrength(game, clubId, opp.id)}{oppLeague ? `, ${ord(Engine.positionOf(oppTable, opp.id))} in the ${oppLeague.name}` : ''}. Form <FormDots form={opp.form} />. Manager {opp.managerId ? world.managers[opp.managerId].name : 'vacant'}.</p>
               </div>
             ) : <p className="muted">No more fixtures this season.</p>}

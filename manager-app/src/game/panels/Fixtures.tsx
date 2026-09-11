@@ -27,7 +27,7 @@ export function FixturesPanel({ game, clubId, fixtures, onPlayer }: { game: Game
                 <span className="h"><Crest name={world.clubs[f.homeClubId].name} short={world.clubs[f.homeClubId].short} size="xs" />{world.clubs[f.homeClubId].name}</span>
                 <span className="s">{f.played ? `${f.homeGoals}–${f.awayGoals}` : 'v'}</span>
                 <span><Crest name={world.clubs[f.awayClubId].name} short={world.clubs[f.awayClubId].short} size="xs" />{world.clubs[f.awayClubId].name}</span>
-                <span className="meta">{dayLabel(f.day - world.seasonStartDay)} · {comp?.name} {label} · {home ? 'home' : 'away'}{res ? ` · ${res}` : ''}</span>
+                <span className="meta">{dayLabel(f.day - world.seasonStartDay)} · {comp?.name} {label} · {home ? 'home' : 'away'}{res ? ` · ${res}` : ''}{Engine.isDerby(world, f) ? <> · <b className="derby">derby</b></> : null}</span>
               </li>
             );
           })}

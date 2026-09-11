@@ -25,10 +25,23 @@ export function MatchReportView({ game, fixture, open, onToggle, onPlayer }: { g
   return (
     <div className="report">
       <p className="score" onClick={onToggle} style={{ cursor: onToggle ? 'pointer' : 'default' }}><span>{h.name}</span><b>{fixture.homeGoals}–{fixture.awayGoals}</b><span>{a.name}</span></p>
-      <p className="muted">{w.competitions[fixture.competitionId]?.name ?? fixture.competitionId} · {r.homeFormation} v {r.awayFormation} · att {r.attendance.toLocaleString('en-GB')} · xG {r.lambda.home.toFixed(2)} v {r.lambda.away.toFixed(2)}{r.penalties ? ` · pens ${r.penalties.home}–${r.penalties.away}` : ''}</p>
+      <p className="muted">{w.competitions[fixture.competitionId]?.name ?? fixture.competitionId} · {r.homeFormation} v {r.awayFormation} · att {r.attendance.toLocaleString('en-GB')} · xG {r.lambda.home.toFixed(2)} v {r.lambda.away.toFixed(2)}{r.penalties ? ` · pens ${r.penalties.home}–${r.penalties.away}` : ''}{r.derby ? <> · <span className="pill hot">derby</span></> : null}</p>
       {open ? (
         <>
           {r.goals.length ? <ol className="goals">{r.goals.map((g, i) => <li key={i}><span className="min">{g.minute}&apos;</span><span className="who">{w.clubs[g.clubId].short}</span><a onClick={() => onPlayer?.(g.scorerId)}>{w.players[g.scorerId]?.name ?? 'unknown'}</a>{g.assistId ? <span className="muted"> (assist {w.players[g.assistId]?.name})</span> : null}</li>)}</ol> : <p className="muted">Goalless.</p>}
+          {r.cards.length ? (
+            <ul className="cards-list">
+              {r.cards.map((c, i) => (
+                <li key={i}>
+                  <span className="min">{c.minute}&apos;</span>
+                  <i className={c.kind === 'yellow' ? 'card-y' : 'card-r'} aria-hidden />
+                  <span className="who">{w.clubs[c.clubId].short}</span>
+                  <a onClick={() => onPlayer?.(c.playerId)}>{w.players[c.playerId]?.name ?? c.playerId}</a>
+                  <span className="muted">{c.kind === 'yellow' ? 'booked' : c.kind === 'second' ? 'second yellow' : 'sent off'}{c.ban ? ` · ${c.ban} match ban` : ''}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {hasFactors ? (
             <>
               <p className="side">{h.short} factors</p><FactorBars factors={r.factors.home} />
@@ -98,7 +111,7 @@ export function PlayerDrawer({ game, playerId, clubId, onClose, onAction }: { ga
           <div>
             <p className="eyebrow">{p.position} · <Flag nat={p.nationality} /> · {p.age} years</p>
             <h2>{p.name}</h2>
-            <p className="muted">{club ? `${club.name} · ${Engine.leagueOf(world, club.id)?.name ?? ''}` : 'Free agent'}{p.loan ? ' · on loan' : ''}{p.injuryDays > 0 ? ` · injured (${p.injuryDays} days)` : ''}</p>
+            <p className="muted">{club ? `${club.name} · ${Engine.leagueOf(world, club.id)?.name ?? ''}` : 'Free agent'}{p.loan ? ' · on loan' : ''}{p.injuryDays > 0 ? ` · injured (${p.injuryDays} days)` : ''}{p.suspension > 0 ? ` · suspended (${p.suspension} match${p.suspension === 1 ? '' : 'es'})` : ''}</p>
           </div>
           <button className="btn small" onClick={onClose}>Close</button>
         </header>
@@ -106,7 +119,7 @@ export function PlayerDrawer({ game, playerId, clubId, onClose, onAction }: { ga
           <div className="tiles">
             <div className="tile"><div className="v"><Ovr v={Engine.overall(p)} /></div><div className="k">Overall</div><div className="sub">potential {scout.potentialLow}–{scout.potentialHigh}</div></div>
             <div className="tile"><div className="v">{money(p.value, cur)}</div><div className="k">Value</div><div className="sub">{c ? `${wage(c.wage, cur)} to S${c.endSeason}` : 'no contract'}</div></div>
-            <div className="tile"><div className="v">{p.stats.apps}</div><div className="k">Apps</div><div className="sub">{p.stats.goals} goals · {p.stats.assists} assists</div></div>
+            <div className="tile"><div className="v">{p.stats.apps}</div><div className="k">Apps</div><div className="sub">{p.stats.goals} goals · {p.stats.assists} assists · {p.stats.yellows}Y {p.stats.reds}R</div></div>
             <div className="tile"><div className="v">{avg ? avg.toFixed(2) : '–'}</div><div className="k">Avg rating</div><div className="sub">morale {p.morale} · fitness {Math.round(p.fitness)}</div></div>
           </div>
           <section>
