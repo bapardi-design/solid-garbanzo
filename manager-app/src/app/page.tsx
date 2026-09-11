@@ -6,7 +6,7 @@ export default function Home() {
   return (
     <main className="page">
       <div className="wrap">
-        <section className="hero">
+        <section className="hero on-pitch">
           <div>
             <p className="eyebrow">Football management, no download</p>
             <h1>Take the touchline.<br />Keep your job.</h1>

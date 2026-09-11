@@ -17,17 +17,18 @@ import { FixturesPanel } from './panels/Fixtures';
 import { CompetitionsPanel } from './panels/Competitions';
 import { FinancesPanel } from './panels/Finances';
 import { ClubPanel, JobsPanel } from './panels/Club';
+import { BoardroomPanel } from './panels/Boardroom';
 import { ManagedMatch, MatchLive } from './panels/MatchLive';
 import { Crest, FormDots, PlayerDrawer } from './panels/shared';
 import { identity } from './brand';
 import { money, ord } from './format';
 
 type GameT = ReturnType<typeof Engine.resumeGame>;
-type Tab = 'home' | 'news' | 'squad' | 'transfers' | 'tactics' | 'fixtures' | 'competitions' | 'finances' | 'club' | 'jobs';
+type Tab = 'home' | 'news' | 'squad' | 'transfers' | 'tactics' | 'fixtures' | 'competitions' | 'boardroom' | 'finances' | 'club' | 'jobs';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'home', label: 'Home' }, { id: 'news', label: 'News' }, { id: 'squad', label: 'Squad' }, { id: 'transfers', label: 'Transfers' }, { id: 'tactics', label: 'Tactics' },
-  { id: 'fixtures', label: 'Fixtures' }, { id: 'competitions', label: 'Competitions' }, { id: 'finances', label: 'Finances' }, { id: 'club', label: 'Club' }, { id: 'jobs', label: 'Jobs' },
+  { id: 'fixtures', label: 'Fixtures' }, { id: 'competitions', label: 'Competitions' }, { id: 'boardroom', label: 'Boardroom' }, { id: 'finances', label: 'Finances' }, { id: 'club', label: 'Club' }, { id: 'jobs', label: 'Jobs' },
 ];
 
 export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
@@ -89,12 +90,14 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
       const seasonEnd = Engine.daysLeftInSeason(w) === 0;
       const sd = Engine.seasonDay(w);
       const bid = events.some((e) => e.type === 'BID_RECEIVED');
+      const raised = events.some((e) => e.type === 'DECISION_RAISED');
       const milestone = !stopAtMilestones ? null
         : sd === 0 ? `Season ${w.season} begins. The transfer window is open for four weeks. Check the board's target, the budgets and the market.`
         : sd === Engine.SUMMER_WINDOW[1] ? 'Deadline day for the summer window. Any deals must be done today.'
         : sd === Engine.WINTER_WINDOW[0] ? 'The winter window is open for four weeks.'
         : sd === Engine.WINTER_WINDOW[1] ? 'Deadline day for the winter window.'
-        : bid ? 'A club has made an offer for one of your players. Answer it under Transfers → Offers.' : null;
+        : bid ? 'A club has made an offer for one of your players. Answer it under Transfers → Offers.'
+        : raised ? 'Something needs your signature. It is on your desk under Boardroom.' : null;
       const stop = paused || myMatch !== undefined || w.careerOver !== null || w.day - start >= limit || (seasonEnd && w.day > before) || milestone !== null;
       setProgress(Math.min(100, ((w.day - start) / 10) * 100));
       if (stop) {
@@ -155,6 +158,7 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
   const league = Engine.leagueOf(world, clubId);
   const daysToNext = nextFixture ? nextFixture.day - world.day : null;
   const bids = world.pendingBids.length;
+  const desk = world.boardroom?.decisions.filter((d) => d.chosen === null).length ?? 0;
   const onPlayer = (id: string) => setPlayer(id);
   const goTab = (t: string) => setTab(t as Tab);
 
@@ -206,7 +210,7 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
         </section>
       ) : null}
       <div className="tabs" role="tablist">
-        {TABS.map((t) => <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}>{t.label}{t.id === 'transfers' && bids ? <span className="badge">{bids}</span> : null}</button>)}
+        {TABS.map((t) => <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}>{t.label}{t.id === 'transfers' && bids ? <span className="badge">{bids}</span> : null}{t.id === 'boardroom' && desk ? <span className="badge">{desk}</span> : null}</button>)}
       </div>
       {tab === 'home' ? <HomePanel game={gameRef.current} clubId={clubId} board={board} nextFixture={nextFixture} lastFixture={lastFixture} onPlayer={onPlayer} onTab={goTab} /> : null}
       {tab === 'news' ? <NewsPanel game={gameRef.current} clubId={clubId} onPlayer={onPlayer} /> : null}
@@ -215,6 +219,7 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
       {tab === 'tactics' ? <TacticsPanel game={gameRef.current} clubId={clubId} onAction={afterAction} onPlayer={onPlayer} /> : null}
       {tab === 'fixtures' ? <FixturesPanel game={gameRef.current} clubId={clubId} fixtures={ownFixtures} onPlayer={onPlayer} /> : null}
       {tab === 'competitions' ? <CompetitionsPanel game={gameRef.current} clubId={clubId} onPlayer={onPlayer} /> : null}
+      {tab === 'boardroom' ? <BoardroomPanel game={gameRef.current} onAction={afterAction} /> : null}
       {tab === 'finances' ? <FinancesPanel game={gameRef.current} clubId={clubId} board={board} onPlayer={onPlayer} /> : null}
       {tab === 'club' ? <ClubPanel game={gameRef.current} clubId={clubId} board={board} onPlayer={onPlayer} /> : null}
       {tab === 'jobs' ? <JobsPanel game={gameRef.current} onAction={(r) => { afterAction(r); if (r.ok) setTab('home'); }} /> : null}

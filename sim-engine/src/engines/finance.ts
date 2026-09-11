@@ -6,6 +6,7 @@ import { isRealWorld, squad, tierOfClub } from '../core/schema.js';
 import { squadStrength, weeklyWageBill } from '../rating.js';
 import type { Standing } from '../matchday/table.js';
 import { NATIONS } from '../world/nations.js';
+import { ticketFactor } from './boardroom.js';
 
 export const TICKET_PRICE_K = 0.022;
 export const SPONSOR_PER_REP_WEEKLY = 2.6;
@@ -49,7 +50,8 @@ export function ticketPrice(world: World, fixture: Fixture): number {
 }
 
 export function matchdayIncome(world: World, fixture: Fixture, attendance: number): FinanceEntry {
-  return { clubId: fixture.homeClubId, category: 'gate', amount: Math.round(attendance * ticketPrice(world, fixture)) };
+  const price = ticketPrice(world, fixture) * ticketFactor(world, fixture.homeClubId);
+  return { clubId: fixture.homeClubId, category: 'gate', amount: Math.round(attendance * price) };
 }
 
 function prizeSpec(nationId: string | null, tier: number): { base: number; perPlace: number } {

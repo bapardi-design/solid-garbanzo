@@ -20,6 +20,7 @@ import { contractOf } from '../core/schema.js';
 import { wageDemand, playerValue, effectiveRating, weeklyWageBill, squadStrength } from '../rating.js';
 import { inTransferWindow, signingsThisWindow, SUMMER_WINDOW, WINTER_WINDOW } from '../engines/transfers.js';
 import { currencyFor, money, ordinal, roundLabel } from '../engines/press.js';
+import { MAX_LEVEL as MAX_FACILITY_LEVEL } from '../engines/boardroom.js';
 import { NATIONS, CONTINENTAL_CUP_NAME } from '../world/nations.js';
 import { REAL_WORLD } from '../world/data/index.js';
 import { renderReport } from '../sim/report.js';
@@ -143,13 +144,13 @@ export const api = {
   ...actions,
   createGame, resumeGame, snapshotGame, step, resumeHalfTime, MAX_SUBS, daysLeftInSeason, quickHash, fixturesOnDay, careerReport, selectXI, contractOf, wageDemand, playerValue, effectiveRating, inTransferWindow,
   computeTable, computeGroupTable, positionOf, explainMatch, overall, averageRating, squad, seasonDay, leagueOf, tierFromLeagueId, tierOfClub, nationFromLeagueId, isRealWorld, checkInvariants,
-  weeklyWageBill, squadStrength, signingsThisWindow, currencyFor, money, ordinal, roundLabel,
+  weeklyWageBill, squadStrength, signingsThisWindow, currencyFor, money, ordinal, roundLabel, MAX_FACILITY_LEVEL,
   DEFAULT_CONFIG, CUSTOM_CONFIG, NATIONS, REAL_WORLD, CONTINENTAL_CUP_NAME, SUMMER_WINDOW, WINTER_WINDOW,
 };
 export default api;
 
 export type { HalfTimeDecision } from '../matchday/match.js';
-export type { World, WorldConfig, Player, Club, Manager, Contract, Fixture, Competition, CompetitionLeague, CompetitionCup, MatchReport, GoalFactor, GoalEvent, Tactic, Position, TransferRecord, SeasonSummary, Nation, NewsItem, NewsCategory, TransferBid, HalfTimeState, MatchSub } from '../core/schema.js';
+export type { World, WorldConfig, Player, Club, Manager, Contract, Fixture, Competition, CompetitionLeague, CompetitionCup, MatchReport, GoalFactor, GoalEvent, Tactic, Position, TransferRecord, SeasonSummary, Nation, NewsItem, NewsCategory, TransferBid, HalfTimeState, MatchSub, Boardroom, Decision, DecisionOption, DecisionKind, Facilities } from '../core/schema.js';
 export type { Event, EventType } from '../core/events.js';
 export type { Standing } from '../matchday/table.js';
 export type { Selection } from '../matchday/xi.js';

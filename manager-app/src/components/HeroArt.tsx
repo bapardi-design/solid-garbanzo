@@ -11,12 +11,7 @@ const TABLE = [
 export function HeroArt() {
   return (
     <div className="hero-art">
-      <svg className="pitch-bg" viewBox="0 0 400 120" aria-hidden="true" preserveAspectRatio="none">
-        <rect width="400" height="120" fill="var(--accent-2)" />
-        {Array.from({ length: 10 }, (_, i) => <rect key={i} x={i * 40} y={0} width={20} height={120} fill="#fff" opacity={0.035} />)}
-        <circle cx="200" cy="60" r="34" fill="none" stroke="#fff" strokeOpacity={0.18} strokeWidth="1.5" />
-        <line x1="200" y1="0" x2="200" y2="120" stroke="#fff" strokeOpacity={0.18} strokeWidth="1.5" />
-      </svg>
+      <div className="pitch-bg" aria-hidden="true" />
       <div className="hero-card">
         <p className="eyebrow" style={{ color: 'var(--accent)' }}>Premier Division · matchday 12</p>
         <div className="hero-score">

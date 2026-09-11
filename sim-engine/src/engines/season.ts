@@ -3,6 +3,7 @@ import type { Ctx } from '../core/context.js';
 import type { CompetitionCup, CompetitionLeague, FinanceEntry, Nation, SeasonSummary } from '../core/index.js';
 import { isRealWorld, tierCode, tierFromLeagueId } from '../core/schema.js';
 import { continentalEntryFee, cupPrize, groupWinBonus, prizeMoney, setBudgets } from './finance.js';
+import { academyBonus } from './boardroom.js';
 import { chooseTactics, expireManagerContracts, fillManagerVacancies, boardReview } from './ai.js';
 import { renewContracts, returnLoans } from './transfers.js';
 import { revalue } from './development.js';
@@ -88,10 +89,11 @@ export function startSeason(ctx: Ctx, season: number): void {
 
   // Youth intake.
   for (const club of Object.values(world.clubs)) {
-    const intake = rng.int(2, 3);
+    const academy = academyBonus(world, club.id);
+    const intake = rng.int(2, 3) + (academy >= 5 ? 1 : 0);
     for (let i = 0; i < intake; i++) {
       const pos = rng.pick(['GK', 'DF', 'DF', 'MF', 'MF', 'FW'] as const satisfies readonly Position[]);
-      const player = generatePlayer(ctx, club.id, pos, club.reputation * 0.8, rng.int(16, 18), club.nationId);
+      const player = generatePlayer(ctx, club.id, pos, club.reputation * 0.8 + academy, rng.int(16, 18), club.nationId);
       ctx.emit('PLAYER_CREATED', { player });
       const contract = makeContract(ctx, player.id, club.id, wageDemand(player, real), contractLengthFor(player.age, rng));
       ctx.emit('CONTRACT_SIGNED', { contract, record: null });
