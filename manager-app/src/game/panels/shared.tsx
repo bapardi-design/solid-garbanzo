@@ -7,13 +7,8 @@ export type GameT = ReturnType<typeof Engine.resumeGame>;
 export type Action = (result: { ok: boolean; message: string }) => void;
 export const POS_ORDER = { GK: 0, DF: 1, MF: 2, FW: 3 } as const;
 
-export function Flag({ nat }: { nat: string }) {
-  return <span className="flag" title={nat}>{nat}</span>;
-}
-
-export function Crest({ short, size = 'm' }: { short: string; size?: 's' | 'm' | 'l' }) {
-  return <span className={`crest ${size}`} aria-hidden="true">{short.slice(0, 3)}</span>;
-}
+export { Crest, Flag, Mark, Logo, FlagDefs } from '../marks';
+import { Flag } from '../marks';
 
 export function Ovr({ v }: { v: number }) {
   const n = Math.round(v);

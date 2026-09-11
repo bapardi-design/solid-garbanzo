@@ -18,7 +18,9 @@ import { CompetitionsPanel } from './panels/Competitions';
 import { FinancesPanel } from './panels/Finances';
 import { ClubPanel, JobsPanel } from './panels/Club';
 import { ManagedMatch, MatchLive } from './panels/MatchLive';
-import { Crest, PlayerDrawer } from './panels/shared';
+import { Crest, FormDots, PlayerDrawer } from './panels/shared';
+import { identity } from './brand';
+import { money, ord } from './format';
 
 type GameT = ReturnType<typeof Engine.resumeGame>;
 type Tab = 'home' | 'news' | 'squad' | 'transfers' | 'tactics' | 'fixtures' | 'competitions' | 'finances' | 'club' | 'jobs';
@@ -143,6 +145,9 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
   }
 
   const board = Engine.boardStatus(ctx);
+  const ident = identity(club.name);
+  const currency = Engine.currencyFor(world, clubId);
+  const position = board?.position ?? null;
   const seasonDay = Engine.seasonDay(world);
   const ownFixtures = useMemo(() => Object.values(world.fixtures).filter((f) => f.season === world.season && (f.homeClubId === clubId || f.awayClubId === clubId)).sort((a, b) => a.day - b.day), [world, clubId, world.day, world.season]); // eslint-disable-line react-hooks/exhaustive-deps
   const nextFixture: Fixture | undefined = ownFixtures.find((f) => !f.played);
@@ -155,24 +160,38 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
 
   return (
     <div className="game">
-      <div className="topbar">
-        <div className="who">
-          <Crest short={club.short} size="l" />
-          <div>
-            <h1><small>{record.managerName} · {league?.name ?? ''}</small>{club.name}</h1>
-            <p className="muted mono">Season {world.season} · {dayLabel(seasonDay)} · day {seasonDay}{Engine.inTransferWindow(world) ? ' · window open' : ''}{nextFixture ? ` · next match in ${daysToNext} day${daysToNext === 1 ? '' : 's'}` : ''}</p>
+      <div className="club-bar" style={{ '--club': ident.primary, '--club-2': ident.secondary, '--club-ink': ident.ink } as React.CSSProperties}>
+        <div className="band" />
+        <div className="row">
+          <div className="club-id">
+            <Crest name={club.name} short={club.short} size="xl" title={club.name} />
+            <div>
+              <p className="eyebrow">{league?.name ?? ''} · {record.managerName}</p>
+              <h1>{club.name}</h1>
+              <p className="meta">Season {world.season} · {dayLabel(seasonDay)}{Engine.inTransferWindow(world) ? ' · window open' : ''}{nextFixture ? ` · next match in ${daysToNext}d` : ''}</p>
+            </div>
+          </div>
+          <div className="club-facts">
+            <div className="fact"><div className="v">{position ? ord(position) : '–'}<span className="muted" style={{ fontSize: 11 }}>of {board ? Engine.leagueOf(world, clubId)?.clubIds.length ?? '' : ''}</span></div><div className="k">Position</div></div>
+            <div className="fact"><div className="v"><FormDots form={club.form.slice(-5)} /></div><div className="k">Form</div></div>
+            <div className="fact"><div className="v">{money(club.balance, currency)}</div><div className="k">Bank</div></div>
+            <div className="fact"><div className="v"><span className={`pill ${board?.mood === 'delighted' || board?.mood === 'content' ? 'good' : board?.mood === 'concerned' ? 'warn' : 'bad'}`}>{board?.mood ?? '—'}</span></div><div className="k">Board</div></div>
           </div>
         </div>
-        <div className="actions">
-          <span className="muted mono">{saveState === 'saving' ? 'saving…' : saveState === 'saved' ? 'saved' : saveState === 'error' ? 'not saved' : 'unsaved'}</span>
-          <label className="muted small"><input type="checkbox" checked={stopAtMilestones} onChange={(e) => setStopAtMilestones(e.target.checked)} /> stop at windows and offers</label>
-          <label className="muted small"><input type="checkbox" checked={manageLive} onChange={(e) => setManageLive(e.target.checked)} /> manage at half-time</label>
-          <button className="btn" onClick={() => void save()} disabled={busy}>Save</button>
-          <button className="btn" onClick={openReport} disabled={busy || reportBusy}>Season report</button>
-          <Link href="/play" className="btn">Careers</Link>
-          <button className="btn primary" onClick={continueToNextMatch} disabled={busy || world.careerOver !== null}>
-            {busy ? 'Playing…' : world.careerOver ? 'Career over' : nextFixture ? 'Continue to match' : Engine.daysLeftInSeason(world) === 0 ? 'Start next season' : 'Play to season end'}
-          </button>
+        <div className="toolbar">
+          <div className="toggles">
+            <label><input type="checkbox" checked={stopAtMilestones} onChange={(e) => setStopAtMilestones(e.target.checked)} /> stop at windows and offers</label>
+            <label><input type="checkbox" checked={manageLive} onChange={(e) => setManageLive(e.target.checked)} /> manage at half-time</label>
+            <span className={`savedot ${saveState}`}><i />{saveState === 'saving' ? 'saving…' : saveState === 'saved' ? 'saved' : saveState === 'error' ? 'not saved' : 'unsaved'}</span>
+          </div>
+          <div className="actions">
+            <button className="btn plain" onClick={() => void save()} disabled={busy}>Save</button>
+            <button className="btn plain" onClick={openReport} disabled={busy || reportBusy}>Report</button>
+            <Link href="/play" className="btn plain">Careers</Link>
+            <button className="btn primary" onClick={continueToNextMatch} disabled={busy || world.careerOver !== null}>
+              {busy ? 'Playing…' : world.careerOver ? 'Career over' : nextFixture ? 'Continue to match' : Engine.daysLeftInSeason(world) === 0 ? 'Start next season' : 'Play to season end'}
+            </button>
+          </div>
         </div>
       </div>
       {progress !== null ? <div className="progress" aria-hidden="true"><i style={{ width: `${progress}%` }} /></div> : null}

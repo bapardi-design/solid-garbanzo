@@ -9,6 +9,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Engine, { type Fixture, type HalfTimeDecision, type World } from 'sim-engine';
 import { Crest, Ovr, type GameT } from './shared';
+import { identity, luminance } from '../brand';
+
+/** The colour bar under a club: white kits show their trim instead. */
+const kitBar = (name: string): string => {
+  const id = identity(name);
+  return luminance(id.primary) > 0.75 ? id.secondary : id.primary;
+};
 
 interface Line { minute: number; kind: 'goal' | 'chance' | 'info' | 'card' | 'half' | 'sub' | 'end'; clubId: string | null; text: string }
 
@@ -134,9 +141,9 @@ function Scoreboard({ game, f, homeGoals, awayGoals, clock, note }: { game: Game
     <>
       <p className="eyebrow">{f.competitionId ? w.competitions[f.competitionId]?.name : note} · live</p>
       <div className="scoreboard">
-        <div className="team"><Crest short={home.short} size="l" /><b>{home.name}</b></div>
+        <div className="team"><Crest name={home.name} short={home.short} size="l" /><b>{home.name}</b><i className="kit" style={{ background: kitBar(home.name) }} /></div>
         <div className="mid"><div className="sc">{homeGoals}<span>–</span>{awayGoals}</div><div className="clock">{clock}</div></div>
-        <div className="team"><Crest short={away.short} size="l" /><b>{away.name}</b></div>
+        <div className="team"><Crest name={away.name} short={away.short} size="l" /><b>{away.name}</b><i className="kit" style={{ background: kitBar(away.name) }} /></div>
       </div>
     </>
   );

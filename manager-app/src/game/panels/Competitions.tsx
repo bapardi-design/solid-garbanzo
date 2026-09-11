@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react';
 import Engine, { type CompetitionCup, type CompetitionLeague, type Fixture } from 'sim-engine';
 import { dayLabel } from '../format';
-import { Flag, MatchReportView, Ovr, type GameT } from './shared';
+import { Crest, Flag, MatchReportView, Ovr, type GameT } from './shared';
 
 export function CompetitionsPanel({ game, clubId, onPlayer }: { game: GameT; clubId: string; onPlayer: (id: string) => void }) {
   const { world } = game;
@@ -51,7 +51,7 @@ function LeagueView({ game, clubId, comp, onPlayer }: { game: GameT; clubId: str
               {table.map((r) => {
                 const c = world.clubs[r.clubId];
                 const cls = [r.clubId === clubId ? 'mine' : '', comp.promote > 0 && r.position <= comp.promote ? 'zone-up' : contSlots > 0 && r.position <= contSlots ? 'zone-cont' : comp.relegate > 0 && r.position > n - comp.relegate ? 'zone-down' : ''].join(' ');
-                return <tr key={r.clubId} className={cls}><td className="num">{r.position}</td><td>{c.name}</td><td className="num">{r.played}</td><td className="num">{r.won}</td><td className="num">{r.drawn}</td><td className="num">{r.lost}</td><td className="num">{r.gf}</td><td className="num">{r.ga}</td><td className="num">{r.gd > 0 ? '+' : ''}{r.gd}</td><td className="num pts">{r.points}</td><td className="mono muted">{c.form.map((p) => (p === 3 ? 'W' : p === 1 ? 'D' : 'L')).join('')}</td><td className="muted">{c.managerId ? world.managers[c.managerId].name : 'vacant'}</td></tr>;
+                return <tr key={r.clubId} className={cls}><td className="num">{r.position}</td><td className="club-cell"><Crest name={c.name} short={c.short} size="xs" />{c.name}</td><td className="num">{r.played}</td><td className="num">{r.won}</td><td className="num">{r.drawn}</td><td className="num">{r.lost}</td><td className="num">{r.gf}</td><td className="num">{r.ga}</td><td className="num">{r.gd > 0 ? '+' : ''}{r.gd}</td><td className="num pts">{r.points}</td><td className="mono muted">{c.form.map((p) => (p === 3 ? 'W' : p === 1 ? 'D' : 'L')).join('')}</td><td className="muted">{c.managerId ? world.managers[c.managerId].name : 'vacant'}</td></tr>;
               })}
             </tbody>
           </table>
@@ -84,9 +84,9 @@ function FixtureList({ game, fixtures, clubId, onPlayer }: { game: GameT; fixtur
       <ul className="rows">
         {fixtures.map((f) => (
           <li key={f.id} aria-selected={open === f.id} onClick={() => f.played && setOpen(open === f.id ? null : f.id)} style={{ cursor: f.played ? 'pointer' : 'default' }} className={f.homeClubId === clubId || f.awayClubId === clubId ? 'mine' : ''}>
-            <span className="h">{world.clubs[f.homeClubId].name}</span>
+            <span className="h"><Crest name={world.clubs[f.homeClubId].name} short={world.clubs[f.homeClubId].short} size="xs" />{world.clubs[f.homeClubId].name}</span>
             <span className="s">{f.played ? `${f.homeGoals}–${f.awayGoals}` : dayLabel(f.day - world.seasonStartDay)}</span>
-            <span>{world.clubs[f.awayClubId].name}</span>
+            <span><Crest name={world.clubs[f.awayClubId].name} short={world.clubs[f.awayClubId].short} size="xs" />{world.clubs[f.awayClubId].name}</span>
             {f.report?.penalties ? <span className="meta">pens {f.report.penalties.home}–{f.report.penalties.away}</span> : null}
           </li>
         ))}
@@ -117,7 +117,7 @@ function CupView({ game, clubId, comp, onPlayer }: { game: GameT; clubId: string
                 <header><h3>Group {String.fromCharCode(65 + i)}</h3></header>
                 <table>
                   <thead><tr><th>Club</th><th className="num">P</th><th className="num">GD</th><th className="num">Pts</th></tr></thead>
-                  <tbody>{table.map((r) => <tr key={r.clubId} className={`${r.clubId === clubId ? 'mine' : ''} ${r.position <= 2 ? 'zone-up' : ''}`}><td>{world.clubs[r.clubId].name} <Flag nat={world.clubs[r.clubId].nationId} /></td><td className="num">{r.played}</td><td className="num">{r.gd > 0 ? '+' : ''}{r.gd}</td><td className="num pts">{r.points}</td></tr>)}</tbody>
+                  <tbody>{table.map((r) => <tr key={r.clubId} className={`${r.clubId === clubId ? 'mine' : ''} ${r.position <= 2 ? 'zone-up' : ''}`}><td className="club-cell"><Crest name={world.clubs[r.clubId].name} short={world.clubs[r.clubId].short} size="xs" />{world.clubs[r.clubId].name} <Flag nat={world.clubs[r.clubId].nationId} /></td><td className="num">{r.played}</td><td className="num">{r.gd > 0 ? '+' : ''}{r.gd}</td><td className="num pts">{r.points}</td></tr>)}</tbody>
                 </table>
               </section>
             );

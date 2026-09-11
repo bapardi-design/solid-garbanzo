@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import Engine, { type Fixture } from 'sim-engine';
 import { dayLabel } from '../format';
-import { MatchReportView, type GameT } from './shared';
+import { Crest, MatchReportView, type GameT } from './shared';
 
 export function FixturesPanel({ game, clubId, fixtures, onPlayer }: { game: GameT; clubId: string; fixtures: Fixture[]; onPlayer: (id: string) => void }) {
   const { world } = game;
@@ -24,9 +24,9 @@ export function FixturesPanel({ game, clubId, fixtures, onPlayer }: { game: Game
             const label = comp?.kind === 'cup' ? (f.group !== null ? `group ${String.fromCharCode(65 + f.group)}` : Engine.roundLabel(f.round, comp.totalRounds)) : `round ${f.round}`;
             return (
               <li key={f.id} aria-selected={open === f.id} onClick={() => f.played && setOpen(f.id)} style={{ cursor: f.played ? 'pointer' : 'default' }} className={res ? `res-${res}` : ''}>
-                <span className="h">{world.clubs[f.homeClubId].name}</span>
+                <span className="h"><Crest name={world.clubs[f.homeClubId].name} short={world.clubs[f.homeClubId].short} size="xs" />{world.clubs[f.homeClubId].name}</span>
                 <span className="s">{f.played ? `${f.homeGoals}–${f.awayGoals}` : 'v'}</span>
-                <span>{world.clubs[f.awayClubId].name}</span>
+                <span><Crest name={world.clubs[f.awayClubId].name} short={world.clubs[f.awayClubId].short} size="xs" />{world.clubs[f.awayClubId].name}</span>
                 <span className="meta">{dayLabel(f.day - world.seasonStartDay)} · {comp?.name} {label} · {home ? 'home' : 'away'}{res ? ` · ${res}` : ''}</span>
               </li>
             );

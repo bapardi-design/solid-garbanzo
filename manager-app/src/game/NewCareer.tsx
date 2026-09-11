@@ -141,7 +141,7 @@ export function NewCareer() {
                   const difficulty = rank <= n / 4 ? 'easy' : rank <= (3 * n) / 4 ? 'medium' : 'hard';
                   return (
                     <tr key={club.id} className={picked === club.id ? 'mine' : ''} onClick={() => setPicked(club.id)} style={{ cursor: 'pointer' }}>
-                      <td><Crest short={club.short} /></td>
+                      <td><Crest name={club.name} short={club.short} /></td>
                       <td><b>{club.name}</b> <Flag nat={club.nationId} /></td>
                       <td className="muted">{club.city}</td>
                       <td className="num">{rank} <span className={`pill ${difficulty === 'easy' ? 'good' : difficulty === 'medium' ? 'warn' : 'bad'}`}>{difficulty}</span></td>
