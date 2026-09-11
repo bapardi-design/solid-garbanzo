@@ -151,3 +151,56 @@ test('the second-half eleven is rebuilt into the same slots it started in', asyn
     }
   }
 });
+
+test('the boardroom opens with the club and puts decisions on the desk', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const A = await import('../actions.js');
+  const game = createGame({ ...small, seed: 'boardroom' });
+  const clubId = A.jobOffers(game.ctx)[0].club.id;
+  A.takeOverClub(game.ctx, clubId, 'Chairman Whisperer');
+  const opened = A.boardroomView(game.world);
+  assert.ok(opened, 'a boardroom exists once you have a club');
+  assert.equal(opened.clubId, clubId);
+  assert.ok(opened.facilities.length === 4);
+  assert.ok(opened.lines.some((l) => l.weekly < 0), 'wages are money out');
+
+  for (let i = 0; i < 60 && A.boardroomView(game.world)!.pending.length === 0; i++) step(game, 1);
+  const view = A.boardroomView(game.world)!;
+  assert.ok(view.pending.length > 0, 'something lands on the desk within a couple of months');
+  const d = view.pending[0];
+  assert.ok(d.options.length >= 2 && d.title && d.body);
+});
+
+test('answering a decision moves the money and cannot be answered twice', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const A = await import('../actions.js');
+  const game = createGame({ ...small, seed: 'decide' });
+  const clubId = A.jobOffers(game.ctx)[0].club.id;
+  A.takeOverClub(game.ctx, clubId, 'Gaffer');
+  for (let i = 0; i < 60 && A.boardroomView(game.world)!.pending.length === 0; i++) step(game, 1);
+  const d = A.boardroomView(game.world)!.pending[0];
+  const paid = d.options.find((o) => (o.cost ?? 0) > 0);
+  const before = game.world.clubs[clubId].balance;
+  const chosen = paid ?? d.options[0];
+  const res = A.decide(game.ctx, d.id, chosen.id);
+  assert.ok(res.ok, res.message);
+  if (paid) assert.ok(game.world.clubs[clubId].balance < before, 'the cost came out of the bank');
+  assert.equal(A.decide(game.ctx, d.id, chosen.id).ok, false, 'it cannot be answered twice');
+  assert.equal(A.boardroomView(game.world)!.pending.find((x) => x.id === d.id), undefined);
+  assert.ok(A.boardroomView(game.world)!.settled.some((x) => x.id === d.id));
+  assert.deepEqual(checkInvariants(game.world), []);
+});
+
+test('a ticket rise lifts the gate and thins the crowd', async () => {
+  const { createGame } = await import('../browser/engine.js');
+  const B = await import('../engines/boardroom.js');
+  const A = await import('../actions.js');
+  const game = createGame({ ...small, seed: 'tickets' });
+  const clubId = A.jobOffers(game.ctx)[0].club.id;
+  A.takeOverClub(game.ctx, clubId, 'Gaffer');
+  assert.equal(B.ticketFactor(game.world, clubId), 1);
+  assert.equal(B.attendanceFactor(game.world, clubId), 1);
+  game.world.boardroom!.ticketLevel = 1.2;
+  assert.ok(B.ticketFactor(game.world, clubId) > 1);
+  assert.ok(B.attendanceFactor(game.world, clubId) < 1, 'dearer tickets mean a smaller crowd');
+});

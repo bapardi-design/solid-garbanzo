@@ -4,11 +4,14 @@
  */
 import type { Ctx } from './core/context.js';
 import { clamp, hashString } from './core/rng.js';
-import type { Club, GoalEvent, Manager, NewsCategory, NewsItem, Player, Position, Tactic, TransferRecord, World } from './core/schema.js';
+import type { Club, Decision, GoalEvent, Manager, NewsCategory, NewsItem, Player, Position, Tactic, TransferRecord, World } from './core/schema.js';
 import { contractOf, isRealWorld, nextId, squad, tierOfClub } from './core/schema.js';
 import { overall, playerValue, wageDemand, weeklyWageBill } from './rating.js';
 import { MAX_SQUAD, MIN_PER_POSITION, buildMarket, inTransferWindow, type Listing } from './engines/transfers.js';
 import { computeTable, positionOf } from './matchday/table.js';
+import { MAX_LEVEL, openBoardroom, scoutSpread } from './engines/boardroom.js';
+import { weeklyCommercial, weeklyOperations } from './engines/finance.js';
+import { currencyFor } from './engines/press.js';
 import { MAX_SUBS } from './matchday/match.js';
 import { contractLengthFor, makeContract } from './world/generate.js';
 import { leagueOf } from './core/schema.js';
@@ -37,6 +40,7 @@ export function takeOverClub(ctx: Ctx, clubId: string, managerName: string): Man
     unemployedSince: null,
   };
   ctx.emit('CLUB_TAKEN_OVER', { clubId, manager });
+  openBoardroom(ctx, clubId);
   return manager;
 }
 
@@ -264,9 +268,11 @@ export function acceptJob(ctx: Ctx, clubId: string): ActionResult {
   if (v.interest === 'long shot' && !rng.chance(0.35)) return fail(`${v.club.name} went with another candidate.`);
   if (v.interest === 'open' && !rng.chance(0.75)) return fail(`${v.club.name} interviewed you but chose someone else.`);
   ctx.emit('MANAGER_MOVED', { managerId, fromClubId: humanId, toClubId: clubId, contractEndSeason: world.season + 2 });
-  return done(`You are the new manager of ${v.club.name}.`);
+  openBoardroom(ctx, clubId);
+  return done(`You are the new manager of ${v.club.name}. A fresh set of books, and a desk with things on it.`);
 }
 export { contractLengthFor };
+export { decide } from './engines/boardroom.js';
 
 /* ---------- scouting and research ---------- */
 
@@ -341,7 +347,8 @@ export function scoutReport(world: World, playerId: string): ScoutReport {
     : ovr >= 72 ? 'Solid first-team player at top-flight level.'
     : ovr >= 60 ? 'Useful squad player; a starter in the lower leagues.'
     : 'Limited ability; lower-league level.';
-  return { potentialLow: Math.max(1, Math.round(centre - 3)), potentialHigh: Math.min(99, Math.round(centre + 3)), verdict, strengths: sorted.slice(0, 2).map(([k]) => k), weaknesses: sorted.slice(-2).map(([k]) => k) };
+  const spread = scoutSpread(world, p.clubId ?? world.humanClubId ?? '');
+  return { potentialLow: Math.max(1, Math.round(centre - spread)), potentialHigh: Math.min(99, Math.round(centre + spread)), verdict, strengths: sorted.slice(0, 2).map(([k]) => k), weaknesses: sorted.slice(-2).map(([k]) => k) };
 }
 
 export interface Honour { season: number; title: string; kind: 'league' | 'cup' | 'award'; detail: string }
@@ -428,6 +435,77 @@ export function halfTimeView(world: World): HalfTimeView | null {
     xg: { home: ht.lambda.home / 2, away: ht.lambda.away / 2 },
     mine: { clubId: ht.clubId, home, tactic, formation, xi, bench },
     maxSubs: MAX_SUBS,
+  };
+}
+
+/* ---------- the boardroom ---------- */
+
+export interface LedgerLine { label: string; weekly: number }
+export interface BoardroomView {
+  clubId: string;
+  balance: number;
+  currency: string;
+  /** Weekly money in and out, as the accounts would show it. */
+  lines: LedgerLine[];
+  netWeekly: number;
+  facilities: { key: string; label: string; level: number; max: number; note: string }[];
+  sponsor: { name: string; weekly: number; untilSeason: number } | null;
+  ticketLevel: number;
+  stadiumCapacity: number;
+  debt: number;
+  repayment: number;
+  projects: { label: string; weeksLeft: number; seats: number }[];
+  pending: Decision[];
+  settled: Decision[];
+}
+
+const FACILITY_NOTES: Record<string, [string, (lvl: number) => string]> = {
+  stadium: ['Stadium', (l) => (l >= 5 ? 'As big as this ground gets.' : 'Room to add seats.')],
+  academy: ['Academy', (l) => (l >= 4 ? 'Turning out players other clubs want.' : 'Producing squad filler.')],
+  medical: ['Medical', (l) => (l >= 4 ? 'Players come back quickly.' : 'Knocks keep people out longer than they should.')],
+  scouting: ['Scouting', (l) => (l >= 4 ? 'Reports you can act on.' : 'Reports full of maybes.')],
+};
+
+/** Everything on the manager's desk: the account, the club, the open questions. */
+export function boardroomView(world: World): BoardroomView | null {
+  const b = world.boardroom;
+  if (!b || b.clubId !== world.humanClubId) return null;
+  const club = world.clubs[b.clubId];
+  const lines: LedgerLine[] = [
+    { label: 'Commercial and broadcast', weekly: weeklyCommercial(world, club.reputation) },
+    { label: 'Wages', weekly: -Math.round(weeklyWageBill(world, b.clubId)) },
+    { label: 'Running costs', weekly: -weeklyOperations(world, club.reputation) },
+  ];
+  if (b.sponsor && b.sponsor.untilSeason >= world.season) lines.push({ label: `Shirt sponsor (${b.sponsor.name})`, weekly: b.sponsor.weekly });
+  let facilities = 0;
+  for (const d of b.decisions) {
+    if (!d.chosen || d.chosen === 'lapsed') continue;
+    const opt = d.options.find((o) => o.id === d.chosen);
+    if (opt?.weekly && opt.weekly < 0 && d.kind !== 'debt') facilities += opt.weekly;
+  }
+  if (facilities) lines.push({ label: 'Facilities and staff', weekly: facilities });
+  if (b.repayment > 0 && b.debt > 0) lines.push({ label: 'Loan repayment', weekly: -b.repayment });
+  return {
+    clubId: b.clubId,
+    balance: club.balance,
+    currency: currencyFor(world, b.clubId),
+    lines,
+    netWeekly: lines.reduce((a, l) => a + l.weekly, 0),
+    facilities: (Object.keys(FACILITY_NOTES) as (keyof typeof b.facilities)[]).map((key) => ({
+      key,
+      label: FACILITY_NOTES[key][0],
+      level: b.facilities[key],
+      max: MAX_LEVEL,
+      note: FACILITY_NOTES[key][1](b.facilities[key]),
+    })),
+    sponsor: b.sponsor && b.sponsor.untilSeason >= world.season ? b.sponsor : null,
+    ticketLevel: b.ticketLevel,
+    stadiumCapacity: club.stadiumCapacity,
+    debt: b.debt,
+    repayment: b.repayment,
+    projects: b.projects.map((p) => ({ label: p.label, weeksLeft: Math.max(0, Math.ceil((p.endDay - world.day) / 7)), seats: p.seats })),
+    pending: b.decisions.filter((d) => d.chosen === null),
+    settled: b.decisions.filter((d) => d.chosen !== null).slice(-12).reverse(),
   };
 }
 

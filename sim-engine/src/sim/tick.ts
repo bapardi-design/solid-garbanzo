@@ -10,6 +10,7 @@ import { inTransferWindow, renewContracts, runTransferDay } from '../engines/tra
 import { finishMatch, simulateFirstHalf, simulateMatch, type HalfTimeDecision } from '../matchday/match.js';
 import { dailyPress } from '../engines/press.js';
 import { expireBids } from '../engines/bids.js';
+import { boardroomWeek } from '../engines/boardroom.js';
 import type { FinanceEntry } from '../core/events.js';
 
 export interface TickOptions {
@@ -75,7 +76,7 @@ function startOfDay(ctx: Ctx): void {
   else if (sd === world.seasonLength) startSeason(ctx, world.season + 1);
   const sd2 = seasonDay(world);
   const dow = sd2 % 7;
-  if (dow === 0 && sd2 > 0) weeklyFinance(ctx);
+  if (dow === 0 && sd2 > 0) { weeklyFinance(ctx); boardroomWeek(ctx); }
   if (dow === 1 && inTransferWindow(world)) {
     renewContracts(ctx, false);
     runTransferDay(ctx);

@@ -182,6 +182,88 @@ export interface MatchReport {
   tacticChange: { clubId: string; from: Tactic; to: Tactic } | null;
 }
 
+/* ---------- the boardroom: money and decisions away from the team ---------- */
+
+export type DecisionKind =
+  | 'sponsor' | 'stadium' | 'academy' | 'medical' | 'scouting'
+  | 'tickets' | 'bonus' | 'agent_fee' | 'debt' | 'community';
+
+export interface DecisionOption {
+  id: string;
+  label: string;
+  /** What it does, in the manager's words. */
+  detail: string;
+  /** One-off cost in k; negative means money in. */
+  cost?: number;
+  /** Change to the weekly ledger in k; positive is income. */
+  weekly?: number;
+  /** Facility this option upgrades, if any. */
+  upgrade?: keyof Facilities;
+  /** Seats added once the work finishes. */
+  seats?: number;
+  /** Weeks until the work finishes. */
+  weeks?: number;
+  /** Change to the ticket price multiplier. */
+  ticketDelta?: number;
+  /** Borrowed amount in k, repaid weekly. */
+  borrow?: number;
+  /** Effect on board confidence, in target places. */
+  boardMood?: number;
+}
+
+export interface Decision {
+  id: string;
+  kind: DecisionKind;
+  day: number;
+  /** Lapses if it is not answered by this day. */
+  expiresDay: number;
+  title: string;
+  body: string;
+  /** Set when the money only moves if the manager says yes. */
+  approval: boolean;
+  options: DecisionOption[];
+  /** Option id, once answered; 'lapsed' if it timed out. */
+  chosen: string | null;
+  chosenDay: number | null;
+}
+
+export interface Facilities {
+  /** 1-5. Bigger stands, better academy, better treatment, wider scouting. */
+  stadium: number;
+  academy: number;
+  medical: number;
+  scouting: number;
+}
+
+export interface Sponsor {
+  name: string;
+  weekly: number;
+  untilSeason: number;
+}
+
+export interface Project {
+  id: string;
+  label: string;
+  endDay: number;
+  seats: number;
+  upgrade: keyof Facilities | null;
+}
+
+/** Everything the human manager signs off on, away from the pitch. */
+export interface Boardroom {
+  clubId: string;
+  facilities: Facilities;
+  sponsor: Sponsor | null;
+  /** Multiplies the gate price. 1 is the going rate. */
+  ticketLevel: number;
+  /** Outstanding loan in k. */
+  debt: number;
+  /** Weekly repayment in k. */
+  repayment: number;
+  projects: Project[];
+  decisions: Decision[];
+}
+
 /**
  * A match of the human manager's paused at half time. Lives in the world so it
  * survives a save and reload; cleared when the match is finished.
@@ -342,6 +424,8 @@ export interface World {
   careerOver: { day: number; season: number; reason: string } | null;
   /** The human's match paused at half time, if one is. */
   halfTime: HalfTimeState | null;
+  /** The human manager's boardroom, once they take a job. */
+  boardroom: Boardroom | null;
 }
 
 export const DEFAULT_CONFIG: WorldConfig = {
@@ -385,6 +469,7 @@ export function createEmptyWorld(config: WorldConfig): World {
     humanManagerId: null,
     careerOver: null,
     halfTime: null,
+    boardroom: null,
   };
 }
 

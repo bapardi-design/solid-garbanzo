@@ -182,6 +182,31 @@ export function reduce(w: World, e: Event): void {
       }
       break;
     }
+    case 'BOARDROOM_OPENED': {
+      w.boardroom = structuredClone(e.payload.boardroom);
+      break;
+    }
+    case 'BOARDROOM_UPDATED': {
+      if (w.boardroom) Object.assign(w.boardroom, structuredClone(e.payload.patch));
+      break;
+    }
+    case 'DECISION_RAISED': {
+      w.boardroom?.decisions.push(structuredClone(e.payload.decision));
+      break;
+    }
+    case 'DECISION_RESOLVED': {
+      const d = w.boardroom?.decisions.find((x) => x.id === e.payload.decisionId);
+      if (d) { d.chosen = e.payload.optionId; d.chosenDay = e.payload.day; }
+      break;
+    }
+    case 'STADIUM_EXPANDED': {
+      w.clubs[e.payload.clubId].stadiumCapacity += e.payload.seats;
+      break;
+    }
+    case 'PROJECT_COMPLETED': {
+      if (w.boardroom) w.boardroom.projects = w.boardroom.projects.filter((p) => p.id !== e.payload.projectId);
+      break;
+    }
     case 'HALF_TIME_REACHED': {
       w.halfTime = structuredClone(e.payload.state);
       break;

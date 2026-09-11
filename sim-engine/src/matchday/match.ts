@@ -9,6 +9,7 @@ import type { PlayerMatchStats } from '../core/events.js';
 import { clamp } from '../core/rng.js';
 import type { Fixture, GoalEvent, GoalFactor, HalfTimeState, MatchReport, Player, Position, Tactic, World } from '../core/schema.js';
 import { effectiveRating } from '../rating.js';
+import { attendanceFactor, medicalFactor, recoveryFactor } from '../engines/boardroom.js';
 import { FORMATIONS, selectXI, type Selection } from './xi.js';
 
 /** Calibrated for roughly 2.6-2.8 goals per game, ~45% home wins, ~26% draws. */
@@ -100,8 +101,8 @@ function managerAbility(world: World, clubId: string): number {
 export function attendanceFor(world: World, fixture: Fixture): number {
   const home = world.clubs[fixture.homeClubId];
   const away = world.clubs[fixture.awayClubId];
-  const interest = 0.45 + home.reputation / 200 + away.reputation / 500 + (clubForm(world, home.id) - 1.4) * 0.05;
-  return Math.round(home.stadiumCapacity * clamp(interest, 0.25, 1));
+  const interest = (0.45 + home.reputation / 200 + away.reputation / 500 + (clubForm(world, home.id) - 1.4) * 0.05) * attendanceFactor(world, home.id);
+  return Math.round(home.stadiumCapacity * clamp(interest, 0.22, 1));
 }
 
 export interface MatchOutcome {
@@ -216,7 +217,10 @@ function settle(ctx: Ctx, s: Settlement): MatchOutcome {
         rating: clamp(Math.round(rating * 10) / 10, 3, 10),
         fitnessDelta: -(14 - p.attrs.physical / 20) * (minutes / 90),
       };
-      if (rng.chance(INJURY_CHANCE * (minutes / 90))) injuries.push({ playerId: id, days: rng.int(3, 45) });
+      const clubId = world.clubs[fixture.homeClubId].id === p.clubId ? fixture.homeClubId : p.clubId ?? fixture.awayClubId;
+      if (rng.chance(INJURY_CHANCE * (minutes / 90) * medicalFactor(world, clubId))) {
+        injuries.push({ playerId: id, days: Math.max(2, Math.round(rng.int(3, 45) * recoveryFactor(world, clubId))) });
+      }
     }
   };
   tally(s.homeSel1, s.homeSel2, homeGoals, awayGoals);

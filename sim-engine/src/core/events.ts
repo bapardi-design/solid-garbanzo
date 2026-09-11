@@ -1,4 +1,4 @@
-import type { Attributes, Club, Competition, Contract, Fixture, HalfTimeState, Manager, MatchReport, Nation, NewsItem, Player, SeasonSummary, Tactic, TransferBid, TransferRecord, WorldConfig } from './schema.js';
+import type { Attributes, Boardroom, Club, Competition, Contract, Decision, Fixture, HalfTimeState, Manager, MatchReport, Nation, NewsItem, Player, SeasonSummary, Tactic, TransferBid, TransferRecord, WorldConfig } from './schema.js';
 
 export interface PlayerMatchStats {
   minutes: number;
@@ -31,6 +31,12 @@ export interface EventPayloads {
     playerStats: Record<string, PlayerMatchStats>;
   };
   HALF_TIME_REACHED: { state: HalfTimeState };
+  BOARDROOM_OPENED: { boardroom: Boardroom };
+  DECISION_RAISED: { decision: Decision };
+  DECISION_RESOLVED: { decisionId: string; optionId: string; day: number };
+  PROJECT_COMPLETED: { projectId: string };
+  BOARDROOM_UPDATED: { patch: Partial<Boardroom> };
+  STADIUM_EXPANDED: { clubId: string; seats: number };
   PLAYER_INJURED: { playerId: string; days: number };
   MORALE_CHANGED: { deltas: Record<string, number>; reason: string };
   FINANCE_POSTED: { entries: FinanceEntry[] };

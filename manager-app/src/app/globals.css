@@ -379,3 +379,75 @@ td,th{border-bottom:1px solid var(--rule)}
 .club-cell{display:flex;align-items:center;gap:8px;white-space:nowrap}
 .rows .h,.rows li > span{display:flex;align-items:center;gap:8px}
 .rows .h{flex-direction:row-reverse}
+
+
+/* ============================================================
+   Matchday: generated photography (see public/img/CREDITS.md)
+   ============================================================ */
+.hero.on-pitch{position:relative;isolation:isolate;padding:72px 28px 52px;border-radius:var(--r3);overflow:hidden;color:#eef3ef;margin-top:8px}
+.hero.on-pitch::before{content:"";position:absolute;inset:0;z-index:-2;background:url('/img/stadium-night.jpg') center 38%/cover no-repeat}
+.hero.on-pitch::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(100deg,rgba(6,10,8,.94) 0%,rgba(6,10,8,.82) 46%,rgba(6,10,8,.45) 100%)}
+.hero.on-pitch .eyebrow{color:var(--accent)}
+.hero.on-pitch h1{color:#f2f6f3}
+.hero.on-pitch .lede{color:#c3cfc8}
+.hero.on-pitch .hero-art,.hero.on-pitch .hero-card{color:var(--ink)}
+.hero.on-pitch .hero-card .muted{color:var(--muted)}
+.hero.on-pitch .btn:not(.primary){background:rgba(255,255,255,.08);color:#eef3ef;border-color:rgba(255,255,255,.35);backdrop-filter:blur(4px)}
+@media (max-width:900px){.hero.on-pitch{padding:40px 18px 32px}}
+.hero-art .pitch-bg{height:110px;background:url('/img/turf.jpg') center/cover no-repeat}
+
+/* crowd behind the live scoreboard */
+.modal-backdrop.live .scoreboard{position:relative;isolation:isolate;color:#eef3ef;border-bottom:0}
+.modal-backdrop.live .scoreboard::before{content:"";position:absolute;inset:0;z-index:-2;background:url('/img/crowd.jpg') center 60%/cover no-repeat}
+.modal-backdrop.live .scoreboard::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(8,12,10,.72),rgba(8,12,10,.9))}
+.modal-backdrop.live .scoreboard .sc{color:#fff}
+.modal-backdrop.live .scoreboard .clock{color:#9fb0a6}
+.modal-backdrop.live .eyebrow{position:relative;z-index:1}
+
+/* the tactics pitch gets real turf */
+.pitch{background:url('/img/turf.jpg') center/cover no-repeat !important;border-radius:var(--r2)}
+
+/* ============================================================
+   Boardroom
+   ============================================================ */
+.account{position:relative;isolation:isolate;overflow:hidden}
+.account-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:24px;padding:20px 22px;align-items:center}
+.account .eyebrow{margin-bottom:6px}
+.account .bal{font-family:var(--display);font-weight:700;font-size:clamp(38px,6vw,60px);line-height:.95;font-variant-numeric:tabular-nums}
+.ledger{font-size:13px}
+.ledger td{padding:5px 0;border-bottom:1px dotted var(--rule);white-space:nowrap}
+.ledger td.num{text-align:right;font-family:var(--mono)}
+.ledger .in{color:var(--good)}
+.ledger .out{color:var(--critical)}
+.ledger tr.total td{border-bottom:0;border-top:2px solid var(--rule);font-family:var(--display);font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding-top:8px}
+@media (max-width:760px){.account-head{grid-template-columns:1fr}}
+
+.decisions{display:grid;gap:2px;background:var(--rule)}
+.decision{background:var(--surface);padding:16px 18px}
+.decision header{display:flex;align-items:center;gap:10px;padding:0;border:0;background:none;margin-bottom:6px}
+.decision h3{margin:0;font-size:17px;letter-spacing:.02em}
+.decision p{margin:0 0 12px;color:var(--ink-2);max-width:70ch}
+.options{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.option{display:grid;gap:4px;text-align:left;padding:12px 14px;border:1px solid var(--rule);border-radius:var(--r2);background:var(--surface-2);cursor:pointer;transition:border-color .12s ease,transform .08s ease,box-shadow .12s ease}
+.option:hover:not(:disabled){border-color:var(--accent);transform:translateY(-1px);box-shadow:var(--sh1)}
+.option b{font-family:var(--display);font-weight:600;font-size:15px;text-transform:uppercase;letter-spacing:.04em}
+.option span{font-size:12px;color:var(--muted)}
+.option .cost{display:flex;gap:10px;flex-wrap:wrap;margin-top:2px}
+.option .cost em{font-family:var(--mono);font-style:normal;font-size:11px}
+.option .cost .in{color:var(--good)}
+.option .cost .out{color:var(--critical)}
+
+.facility{display:grid;grid-template-columns:88px auto 1fr;gap:10px;align-items:center}
+.fname{font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:12px}
+.meter{display:inline-flex;gap:3px}
+.meter i{width:16px;height:8px;border-radius:2px;background:var(--surface-3);display:block}
+.meter i.on{background:var(--accent)}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:8px 0 0;font-size:13px}
+.facts dt{font-family:var(--display);text-transform:uppercase;letter-spacing:.06em;font-size:11px;color:var(--muted);align-self:center}
+.facts dd{margin:0}
+.projects h4{font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--muted);margin:6px 0 2px}
+.settled{list-style:none;margin:0;padding:0;max-height:330px;overflow-y:auto}
+.settled li{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;padding:9px 14px;border-bottom:1px solid var(--rule);font-size:13px}
+.settled li b{grid-column:2}
+.settled li span:last-child{grid-column:2;color:var(--ink-2);font-size:12px}
+.settled .tag{grid-row:span 2;align-self:start}
