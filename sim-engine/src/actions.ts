@@ -9,8 +9,8 @@ import { contractOf, isRealWorld, nextId, squad, tierOfClub } from './core/schem
 import { overall, playerValue, wageDemand, weeklyWageBill } from './rating.js';
 import { MAX_SQUAD, MIN_PER_POSITION, buildMarket, inTransferWindow, type Listing } from './engines/transfers.js';
 import { computeTable, positionOf } from './matchday/table.js';
-import { MAX_LEVEL, openBoardroom, scoutSpread } from './engines/boardroom.js';
-import { weeklyCommercial, weeklyOperations } from './engines/finance.js';
+import { MAX_LEVEL, openBoardroom, scoutSpread, ticketFactor } from './engines/boardroom.js';
+import { projectedGate, projectedPrize, weeklyCommercial, weeklyOperations } from './engines/finance.js';
 import { currencyFor } from './engines/press.js';
 import { MAX_SUBS } from './matchday/match.js';
 import { contractLengthFor, makeContract } from './world/generate.js';
@@ -481,8 +481,13 @@ export function boardroomView(world: World): BoardroomView | null {
   const b = world.boardroom;
   if (!b || b.clubId !== world.humanClubId) return null;
   const club = world.clubs[b.clubId];
+  // Gate and prize money arrive on matchdays and at the end of a season, but
+  // they are most of what a club lives on: left out, the weekly account reads
+  // as a heavy loss for a club that is comfortably in profit.
   const lines: LedgerLine[] = [
     { label: 'Commercial and broadcast', weekly: weeklyCommercial(world, club.reputation) },
+    { label: 'Gate receipts (weekly average)', weekly: Math.round(projectedGate(world, b.clubId) * ticketFactor(world, b.clubId) / 52) },
+    { label: 'Prize money (weekly average)', weekly: Math.round(projectedPrize(world, b.clubId) / 52) },
     { label: 'Wages', weekly: -Math.round(weeklyWageBill(world, b.clubId)) },
     { label: 'Running costs', weekly: -weeklyOperations(world, club.reputation) },
   ];
