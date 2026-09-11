@@ -338,3 +338,29 @@ test('squads do not waste away over a career', async () => {
   assert.ok(sizes[3] > sizes[0] - 3, `squads went ${sizes.map((s) => s.toFixed(1)).join(' → ')}`);
   assert.ok(sizes[3] > 18, `squads ended at ${sizes[3].toFixed(1)}`);
 });
+
+test('the top flight does not rot away', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const { DEFAULT_CONFIG, tierOfClub, squad } = await import('../core/schema.js');
+  const { overall } = await import('../rating.js');
+  const game = createGame({ ...DEFAULT_CONFIG, seed: 'standards', nations: ['ENG'] });
+  const level = () => {
+    const players = Object.values(game.world.clubs)
+      .filter((c) => tierOfClub(game.world, c.id) === 1)
+      .flatMap((c) => squad(game.world, c.id));
+    return players.reduce((s, p) => s + overall(p), 0) / Math.max(1, players.length);
+  };
+  const marks: number[] = [];
+  for (let season = 0; season < 4; season++) {
+    for (let d = 0; d < 400; d++) {
+      step(game, 1);
+      if (game.world.day % game.world.seasonLength === game.world.seasonLength - 1) break;
+    }
+    marks.push(level());
+    step(game, 1);
+  }
+  // Academy intakes have to reach the standard of the players they replace.
+  // Pinned to reputation they never did, and the division's best drained away
+  // a point a season until the football on show was two divisions worse.
+  assert.ok(marks[3] > marks[0] - 4, `top flight went ${marks.map((m) => m.toFixed(1)).join(' → ')}`);
+});

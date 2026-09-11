@@ -91,11 +91,18 @@ function assignPotential(p: Player, rng: Ctx['rng'], real: boolean): void {
   p.value = playerValue(p, real);
 }
 
-export function generatePlayer(ctx: Ctx, clubId: string | null, position: Position, reputation: number, ageOverride?: number, nationality?: string): Player {
+/**
+ * `peakTarget` is the standard the player reaches at his best. Left out, it is
+ * read off the club's reputation, which is right for filling a new world but
+ * wrong for an academy: reputation compresses the range, so every intake was
+ * below what a big club needs and above what a small one has, and over a
+ * career the whole pyramid flattened towards the middle.
+ */
+export function generatePlayer(ctx: Ctx, clubId: string | null, position: Position, reputation: number, ageOverride?: number, nationality?: string, peakTarget?: number): Player {
   const { rng } = ctx;
   const age = ageOverride ?? rng.weighted([17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34],
     [2, 3, 4, 5, 6, 7, 7, 7, 7, 7, 6, 6, 5, 4, 3, 2, 1, 1]);
-  const peak = clamp(rng.normal(reputation * 0.7 + 14, 6), 20, 92);
+  const peak = clamp(rng.normal(peakTarget ?? reputation * 0.7 + 14, 6), 20, 92);
   const maturity = age >= 27 ? 1 : 0.72 + (age - 17) * 0.028;
   const nat = nationality ?? 'CUS';
   const player = basePlayer(ctx, clubId, position, personName(nat, rng), age, nat, attrsAround(rng, position, peak * maturity));
