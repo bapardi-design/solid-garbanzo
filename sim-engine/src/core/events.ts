@@ -1,6 +1,4 @@
-import type {
-  Attributes, Club, Competition, Contract, Fixture, Manager, MatchReport, Player, SeasonSummary, Tactic, TransferRecord, WorldConfig,
-} from './schema.js';
+import type { Attributes, Club, Competition, Contract, Fixture, HalfTimeState, Manager, MatchReport, Nation, NewsItem, Player, SeasonSummary, Tactic, TransferBid, TransferRecord, WorldConfig } from './schema.js';
 
 export interface PlayerMatchStats {
   minutes: number;
@@ -14,6 +12,7 @@ export interface FinanceEntry { clubId: string; category: string; amount: number
 
 export interface EventPayloads {
   WORLD_CREATED: { seed: string; config: WorldConfig };
+  NATION_CREATED: { nation: Nation };
   CLUB_CREATED: { club: Club };
   PLAYER_CREATED: { player: Player };
   MANAGER_CREATED: { manager: Manager };
@@ -31,6 +30,7 @@ export interface EventPayloads {
     report: MatchReport;
     playerStats: Record<string, PlayerMatchStats>;
   };
+  HALF_TIME_REACHED: { state: HalfTimeState };
   PLAYER_INJURED: { playerId: string; days: number };
   MORALE_CHANGED: { deltas: Record<string, number>; reason: string };
   FINANCE_POSTED: { entries: FinanceEntry[] };
@@ -41,7 +41,7 @@ export interface EventPayloads {
   LOAN_RETURNED: { record: TransferRecord };
   PLAYER_RETIRED: { playerId: string; clubId: string | null; reason: 'age' | 'unattached' };
   MANAGER_SACKED: { managerId: string; clubId: string; reason: string };
-  MANAGER_APPOINTED: { managerId: string; clubId: string; contractEndSeason: number };
+  MANAGER_APPOINTED: { managerId: string; clubId: string; contractEndSeason: number; reason?: 'appointment' | 'renewal' };
   MANAGER_CONTRACT_EXPIRED: { managerId: string; clubId: string };
   CUP_ROUND_ADVANCED: { competitionId: string; round: number; alive: string[]; winnerId: string | null };
   BUDGETS_SET: { budgets: Record<string, { wageBudget: number; transferBudget: number; boardTarget: number }> };
@@ -53,7 +53,14 @@ export interface EventPayloads {
   PLAYER_UNLISTED: { playerId: string };
   PLAYER_RELEASED: { playerId: string; clubId: string; payoff: number };
   CAREER_ENDED: { clubId: string; reason: string };
+  MANAGER_MOVED: { managerId: string; fromClubId: string | null; toClubId: string; contractEndSeason: number };
+  NEWS_PUBLISHED: { items: NewsItem[] };
+  BID_RECEIVED: { bid: TransferBid };
+  BID_RESOLVED: { bidId: string; accepted: boolean };
+  AWARDS_GIVEN: { season: number; awards: Award[] };
 }
+
+export interface Award { title: string; nationId: string | null; playerId: string | null; clubId: string | null; managerId: string | null; detail: string }
 
 export type EventType = keyof EventPayloads;
 

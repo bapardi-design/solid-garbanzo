@@ -80,7 +80,7 @@ export function checkInvariants(world: World): string[] {
     }
   }
   for (const comp of Object.values(world.competitions)) {
-    if (comp.kind !== 'league' || !comp.complete) continue;
+    if (comp.kind !== 'league' || !comp.complete || comp.season < world.season - 1) continue;
     const n = comp.clubIds.length;
     const fixtures = (world.idx.fixturesByCompetition[comp.id] ?? []).map((id) => world.fixtures[id]);
     if (fixtures.length !== n * (n - 1)) err(`league ${comp.id} has ${fixtures.length} fixtures, expected ${n * (n - 1)}`);

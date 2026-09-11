@@ -74,6 +74,15 @@ position and rating. The factors are stored on the fixture report so
 `--explain` can show why a result happened. Calibration target is about 2.7
 goals per match with roughly 45/25/30 home/draw/away.
 
+Matches are played in two halves, each a Poisson draw on half the rate, which
+leaves the full-match distribution unchanged. That gives the human manager a
+decision point: with `step(game, days, { halfTime: true })` the day stops when
+their match reaches the interval, the paused state lives on `world.halfTime`
+(so it survives a save and reload), and `resumeHalfTime(game, decision)` plays
+the second half on a new basis. A decision is a tactic switch, up to three
+substitutions, or both; illegal swaps are ignored. The second half's factors,
+the substitutions and the half-time score are all recorded on the report.
+
 ## Report
 
 `--report FILE` writes a single HTML file with no external scripts: goals and

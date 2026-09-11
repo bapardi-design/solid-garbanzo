@@ -5,6 +5,16 @@ club, set tactics, work the transfer market, renew contracts, and survive the
 board. The engine runs in the browser; accounts, cloud saves and subscriptions
 run on Supabase and Stripe; the app deploys to Vercel.
 
+## Playing a match
+
+Matches of yours are played out minute by minute with commentary. With "manage
+at half-time" on (the default), the engine stops your match at the interval:
+the half-time panel shows the score and the first-half expected goals, and
+takes a change of approach and up to three substitutions before the second half
+is played on the new basis. The pause is part of the save, so you can close the
+tab at half time and pick the match up where you left it. Turn the toggle off
+and matches are decided in one pass and replayed as before.
+
 ## Plans
 
 | | Free | Pro |

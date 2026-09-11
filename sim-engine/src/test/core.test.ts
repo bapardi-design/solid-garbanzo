@@ -5,7 +5,7 @@ import { bergerRoundRobin, doubleRoundRobin } from '../matchday/fixtures.js';
 import { computeTable } from '../matchday/table.js';
 import { selectXI } from '../matchday/xi.js';
 import { createWorld } from '../sim/runner.js';
-import { DEFAULT_CONFIG } from '../core/schema.js';
+import { CUSTOM_CONFIG } from '../core/schema.js';
 import { checkInvariants } from '../sim/invariants.js';
 import { contractLengthFor } from '../world/generate.js';
 
@@ -59,7 +59,7 @@ test('contract lengths are never zero', () => {
 });
 
 test('generated world passes invariants and selects a full XI', () => {
-  const ctx = createWorld({ ...DEFAULT_CONFIG, seed: 'gen', leagues: 1, clubsPerLeague: 6 });
+  const ctx = createWorld({ ...CUSTOM_CONFIG, seed: 'gen', leagues: 1, clubsPerLeague: 6 });
   const world = ctx.world;
   assert.deepEqual(checkInvariants(world), []);
   assert.equal(Object.keys(world.clubs).length, 6);
@@ -73,15 +73,15 @@ test('generated world passes invariants and selects a full XI', () => {
 });
 
 test('league table orders by points, goal difference, goals for', () => {
-  const ctx = createWorld({ ...DEFAULT_CONFIG, seed: 'table', leagues: 1, clubsPerLeague: 4 });
+  const ctx = createWorld({ ...CUSTOM_CONFIG, seed: 'table', leagues: 1, clubsPerLeague: 4 });
   const w = ctx.world;
   const ids = Object.keys(w.clubs);
-  const comp = { id: 'LT', kind: 'league' as const, name: 'T', season: 1, tier: 1, clubIds: ids, promote: 0, relegate: 0, complete: false };
+  const comp = { id: 'LT', kind: 'league' as const, name: 'T', nationId: 'CUS', season: 1, tier: 1, clubIds: ids, promote: 0, relegate: 0, complete: false };
   w.competitions[comp.id] = comp;
   w.idx.fixturesByCompetition[comp.id] = [];
   const add = (h: string, a: string, hg: number, ag: number, i: number) => {
     const id = `fx${i}`;
-    w.fixtures[id] = { id, competitionId: comp.id, season: 1, round: 1, day: i, homeClubId: h, awayClubId: a, knockout: false, played: true, homeGoals: hg, awayGoals: ag, winnerId: hg > ag ? h : ag > hg ? a : null, report: null };
+    w.fixtures[id] = { id, competitionId: comp.id, season: 1, round: 1, day: i, homeClubId: h, awayClubId: a, group: null, knockout: false, played: true, homeGoals: hg, awayGoals: ag, winnerId: hg > ag ? h : ag > hg ? a : null, report: null };
     w.idx.fixturesByCompetition[comp.id].push(id);
   };
   add(ids[0], ids[1], 3, 0, 1); // 0 wins by 3

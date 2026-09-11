@@ -11,19 +11,24 @@ export interface Ctx {
   /** Applies the event to the world immediately and appends it to the log. */
   emit<T extends EventType>(type: T, payload: EventPayloads[T]): Event<T>;
   log: Event[];
+  /** Events emitted today; the day tick clears it and the press engine reads it. */
+  today: Event[];
 }
 
 export function createCtx(world: World, rng: Rng): Ctx {
   const log: Event[] = [];
+  const today: Event[] = [];
   const ctx: Ctx = {
     world,
     rng,
     log,
+    today,
     emit(type, payload) {
       // Clone so the logged event never aliases live world objects.
       const e = makeEvent(type, world.day, structuredClone(payload));
       reduce(world, e);
       log.push(e);
+      today.push(e);
       return e;
     },
   };

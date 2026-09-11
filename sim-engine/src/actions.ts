@@ -3,12 +3,13 @@
  * through the same reducer the AI uses, so careers stay replayable.
  */
 import type { Ctx } from './core/context.js';
-import { clamp } from './core/rng.js';
-import type { Club, Manager, Player, Tactic, TransferRecord } from './core/schema.js';
-import { contractOf, nextId, squad, tierOfClub } from './core/schema.js';
+import { clamp, hashString } from './core/rng.js';
+import type { Club, GoalEvent, Manager, NewsCategory, NewsItem, Player, Position, Tactic, TransferRecord, World } from './core/schema.js';
+import { contractOf, isRealWorld, nextId, squad, tierOfClub } from './core/schema.js';
 import { overall, playerValue, wageDemand, weeklyWageBill } from './rating.js';
 import { MAX_SQUAD, MIN_PER_POSITION, buildMarket, inTransferWindow, type Listing } from './engines/transfers.js';
 import { computeTable, positionOf } from './matchday/table.js';
+import { MAX_SUBS } from './matchday/match.js';
 import { contractLengthFor, makeContract } from './world/generate.js';
 import { leagueOf } from './core/schema.js';
 
@@ -80,7 +81,7 @@ export function marketForHuman(ctx: Ctx): MarketEntry[] {
 
 function askingWage(ctx: Ctx, l: Listing): number {
   const current = l.fromClubId ? contractOf(ctx.world, l.player.id)?.wage ?? 0 : 0;
-  return Math.round(Math.max(current, wageDemand(l.player)) * (l.fromClubId ? 1.1 : 1));
+  return Math.round(Math.max(current, wageDemand(l.player, isRealWorld(ctx.world))) * (l.fromClubId ? 1.1 : 1) * 10) / 10;
 }
 
 function record(ctx: Ctx, player: Player, fromClubId: string | null, toClubId: string, fee: number, kind: TransferRecord['kind']): TransferRecord {
@@ -148,7 +149,7 @@ export function renewalTerms(ctx: Ctx, playerId: string): RenewalTerms | null {
   const p = world.players[playerId];
   if (!club || !p || p.clubId !== club.id) return null;
   const c = contractOf(world, playerId);
-  const demand = Math.round(Math.max(c?.wage ?? 0, wageDemand(p)) * (1 + (50 - p.morale) / 250));
+  const demand = Math.round(Math.max(c?.wage ?? 0, wageDemand(p, isRealWorld(world))) * (1 + (50 - p.morale) / 250) * 10) / 10;
   const maxYears = p.age >= 33 ? 1 : p.age >= 30 ? 2 : 4;
   const willing = p.morale >= 30;
   return { wage: demand, maxYears, willing, note: willing ? `Wants ${demand}k a week, up to ${maxYears} season${maxYears === 1 ? '' : 's'}.` : `${p.name} is unhappy and will not talk terms yet.` };
@@ -190,9 +191,12 @@ export function boardStatus(ctx: Ctx): BoardStatus | null {
   const club = humanClub(ctx);
   if (!club) return null;
   const league = leagueOf(world, club.id);
-  const position = league ? positionOf(computeTable(world, league), club.id) : club.boardTarget;
+  const table = league ? computeTable(world, league) : [];
+  const position = league ? positionOf(table, club.id) : club.boardTarget;
   const formPoints = club.form.reduce((a, b) => a + b, 0);
-  const gap = position - club.boardTarget;
+  // Early-season positions mean little; the board waits for a body of results.
+  const played = table.find((r) => r.clubId === club.id)?.played ?? 0;
+  const gap = (position - club.boardTarget) * Math.min(1, played / 8);
   const mood = gap <= -2 ? 'delighted' : gap <= 2 ? 'content' : gap <= 5 ? 'concerned' : 'furious';
   const notes = {
     delighted: 'The board is delighted with progress.',
@@ -228,5 +232,203 @@ export function jobOffers(ctx: Ctx): { club: Club; tier: number; strengthRank: n
   return out.sort((a, b) => a.tier - b.tier || a.strengthRank - b.strengthRank);
 }
 
-export function valueOf(p: Player): number { return playerValue(p); }
+export function valueOf(ctx: Ctx, p: Player): number { return playerValue(p, isRealWorld(ctx.world)); }
+
+export interface Vacancy { club: Club; tier: number; reputation: number; interest: 'keen' | 'open' | 'long shot'; note: string }
+
+/** Clubs without a manager that would consider the human, by reputation gap. */
+export function vacancies(ctx: Ctx): Vacancy[] {
+  const { world } = ctx;
+  const humanId = world.careerOver ? null : world.humanClubId;
+  const manager = world.humanManagerId ? world.managers[world.humanManagerId] : null;
+  const rep = manager?.reputation ?? 40;
+  const out: Vacancy[] = [];
+  for (const club of Object.values(world.clubs)) {
+    if (club.managerId || club.id === humanId) continue;
+    const gap = club.reputation - rep;
+    if (gap > 20) continue;
+    const interest = gap <= 0 ? 'keen' : gap <= 10 ? 'open' : 'long shot';
+    out.push({ club, tier: tierOfClub(world, club.id), reputation: club.reputation, interest, note: interest === 'keen' ? 'The board would appoint you today.' : interest === 'open' ? 'You are on the shortlist.' : 'An outside chance; a good run of results would help.' });
+  }
+  return out.sort((a, b) => b.reputation - a.reputation || a.club.id.localeCompare(b.club.id));
+}
+
+/** Leave the current club for a vacancy. Long shots can say no. */
+export function acceptJob(ctx: Ctx, clubId: string): ActionResult {
+  const { world, rng } = ctx;
+  const v = vacancies(ctx).find((x) => x.club.id === clubId);
+  if (!v) return fail('That job is not available.');
+  const managerId = world.humanManagerId;
+  const humanId = world.careerOver ? null : world.humanClubId;
+  if (!managerId) return fail('You have no manager profile yet.');
+  if (v.interest === 'long shot' && !rng.chance(0.35)) return fail(`${v.club.name} went with another candidate.`);
+  if (v.interest === 'open' && !rng.chance(0.75)) return fail(`${v.club.name} interviewed you but chose someone else.`);
+  ctx.emit('MANAGER_MOVED', { managerId, fromClubId: humanId, toClubId: clubId, contractEndSeason: world.season + 2 });
+  return done(`You are the new manager of ${v.club.name}.`);
+}
 export { contractLengthFor };
+
+/* ---------- scouting and research ---------- */
+
+export interface PlayerQuery {
+  text?: string;
+  pos?: Position | 'ALL';
+  minOverall?: number;
+  maxAge?: number;
+  minAge?: number;
+  maxValue?: number;
+  nationality?: string;
+  /** League nation of the player's club. */
+  nationId?: string;
+  tier?: number;
+  freeAgentsOnly?: boolean;
+  expiringOnly?: boolean;
+  sort?: 'overall' | 'value' | 'potential' | 'age' | 'goals';
+  limit?: number;
+}
+
+export interface PlayerHit { player: Player; club: Club | null; overall: number; tier: number | null }
+
+export function searchPlayers(world: World, q: PlayerQuery): PlayerHit[] {
+  const text = q.text?.trim().toLowerCase() ?? '';
+  const hits: PlayerHit[] = [];
+  for (const id in world.players) {
+    const p = world.players[id];
+    if (p.retired) continue;
+    if (q.freeAgentsOnly && p.clubId) continue;
+    if (q.pos && q.pos !== 'ALL' && p.position !== q.pos) continue;
+    if (q.maxAge !== undefined && p.age > q.maxAge) continue;
+    if (q.minAge !== undefined && p.age < q.minAge) continue;
+    if (q.maxValue !== undefined && p.value > q.maxValue) continue;
+    if (q.nationality && p.nationality !== q.nationality) continue;
+    const ovr = overall(p);
+    if (q.minOverall !== undefined && ovr < q.minOverall) continue;
+    const club = p.clubId ? world.clubs[p.clubId] : null;
+    if (q.nationId && club?.nationId !== q.nationId) continue;
+    const tier = club ? tierOfClub(world, club.id) : null;
+    if (q.tier !== undefined && tier !== q.tier) continue;
+    if (q.expiringOnly) { const c = contractOf(world, p.id); if (!c || c.endSeason !== world.season) continue; }
+    if (text && !p.name.toLowerCase().includes(text) && !(club?.name.toLowerCase().includes(text) ?? false)) continue;
+    hits.push({ player: p, club, overall: ovr, tier });
+  }
+  const sort = q.sort ?? 'overall';
+  hits.sort((a, b) => {
+    switch (sort) {
+      case 'value': return b.player.value - a.player.value;
+      case 'potential': return b.player.potential - a.player.potential || b.overall - a.overall;
+      case 'age': return a.player.age - b.player.age || b.overall - a.overall;
+      case 'goals': return b.player.stats.goals - a.player.stats.goals;
+      default: return b.overall - a.overall;
+    }
+  });
+  return hits.slice(0, q.limit ?? 100);
+}
+
+export interface ScoutReport { potentialLow: number; potentialHigh: number; verdict: string; strengths: string[]; weaknesses: string[] }
+
+/** A scout's view of a player: a potential range and a plain-language verdict. */
+export function scoutReport(world: World, playerId: string): ScoutReport {
+  const p = world.players[playerId];
+  const noise = (hashString(`${world.config.seed}:${playerId}`) % 5) - 2;
+  const centre = p.potential + noise;
+  const ovr = overall(p);
+  const attrs = Object.entries(p.attrs).filter(([k]) => p.position === 'GK' || k !== 'goalkeeping') as [string, number][];
+  const sorted = [...attrs].sort((a, b) => b[1] - a[1]);
+  const growth = centre - ovr;
+  const verdict = p.age <= 21 && growth >= 10 ? 'Outstanding prospect: could become a star.'
+    : p.age <= 23 && growth >= 5 ? 'Good prospect with clear room to improve.'
+    : ovr >= 82 ? 'Elite player who would improve almost any side.'
+    : ovr >= 72 ? 'Solid first-team player at top-flight level.'
+    : ovr >= 60 ? 'Useful squad player; a starter in the lower leagues.'
+    : 'Limited ability; lower-league level.';
+  return { potentialLow: Math.max(1, Math.round(centre - 3)), potentialHigh: Math.min(99, Math.round(centre + 3)), verdict, strengths: sorted.slice(0, 2).map(([k]) => k), weaknesses: sorted.slice(-2).map(([k]) => k) };
+}
+
+export interface Honour { season: number; title: string; kind: 'league' | 'cup' | 'award'; detail: string }
+
+export function clubHonours(world: World, clubId: string): Honour[] {
+  const out: Honour[] = [];
+  for (const s of world.history) {
+    for (const [compId, winner] of Object.entries(s.champions)) {
+      if (winner !== clubId) continue;
+      const comp = world.competitions[compId];
+      const name = comp?.name ?? compId.replace(/_S\d+$/, '');
+      out.push({ season: s.season, title: comp?.kind === 'cup' ? `${name} winners` : `${name} champions`, kind: comp?.kind === 'cup' ? 'cup' : 'league', detail: '' });
+    }
+    if (s.promoted.includes(clubId)) out.push({ season: s.season, title: 'Promoted', kind: 'league', detail: `finished ${s.positions[clubId] ?? '?'}` });
+    for (const a of s.awards ?? []) if (a.clubId === clubId) out.push({ season: s.season, title: a.title, kind: 'award', detail: `${a.playerId ? world.players[a.playerId]?.name ?? '' : a.managerId ? world.managers[a.managerId]?.name ?? '' : ''} — ${a.detail}` });
+  }
+  return out.sort((a, b) => b.season - a.season);
+}
+
+export interface NewsQuery { clubId?: string; nationId?: string | null; category?: NewsCategory | 'all'; playerId?: string; limit?: number }
+
+/** Latest news first. */
+export function newsFeed(world: World, q: NewsQuery = {}): NewsItem[] {
+  const out: NewsItem[] = [];
+  for (let i = world.news.length - 1; i >= 0 && out.length < (q.limit ?? 60); i--) {
+    const n = world.news[i];
+    if (q.clubId && !n.clubIds.includes(q.clubId)) continue;
+    if (q.nationId !== undefined && q.nationId !== null && n.nationId !== q.nationId && n.nationId !== null) continue;
+    if (q.category && q.category !== 'all' && n.category !== q.category) continue;
+    if (q.playerId && n.playerId !== q.playerId) continue;
+    out.push(n);
+  }
+  return out;
+}
+
+export interface HalfTimeView {
+  fixtureId: string;
+  competitionName: string;
+  homeClubId: string;
+  awayClubId: string;
+  homeGoals: number;
+  awayGoals: number;
+  goals: GoalEvent[];
+  /** Expected goals in the first half. */
+  xg: { home: number; away: number };
+  mine: {
+    clubId: string;
+    home: boolean;
+    tactic: Tactic;
+    formation: string;
+    /** On the pitch, in formation order. */
+    xi: { playerId: string; pos: Position }[];
+    /** Fit players on the bench, strongest first. */
+    bench: string[];
+  };
+  maxSubs: number;
+}
+
+/** The paused match, ready for the half-time screen, or null if none. */
+export function halfTimeView(world: World): HalfTimeView | null {
+  const ht = world.halfTime;
+  if (!ht) return null;
+  const fixture = world.fixtures[ht.fixtureId];
+  const home = ht.clubId === fixture.homeClubId;
+  const xiIds = home ? ht.homeXI : ht.awayXI;
+  const tactic = home ? ht.homeTactic : ht.awayTactic;
+  const formation = home ? ht.homeFormation : ht.awayFormation;
+  const order: Position[] = ['GK', 'DF', 'MF', 'FW'];
+  const xi = [...xiIds]
+    .map((playerId) => ({ playerId, pos: world.players[playerId]?.position ?? 'MF' as Position }))
+    .sort((a, b) => order.indexOf(a.pos) - order.indexOf(b.pos) || overall(world.players[b.playerId]) - overall(world.players[a.playerId]));
+  const bench = squad(world, ht.clubId)
+    .filter((p) => !p.retired && p.injuryDays === 0 && !xiIds.includes(p.id))
+    .sort((a, b) => overall(b) - overall(a))
+    .map((p) => p.id);
+  return {
+    fixtureId: ht.fixtureId,
+    competitionName: world.competitions[fixture.competitionId]?.name ?? '',
+    homeClubId: fixture.homeClubId,
+    awayClubId: fixture.awayClubId,
+    homeGoals: ht.homeGoals,
+    awayGoals: ht.awayGoals,
+    goals: ht.goals,
+    xg: { home: ht.lambda.home / 2, away: ht.lambda.away / 2 },
+    mine: { clubId: ht.clubId, home, tactic, formation, xi, bench },
+    maxSubs: MAX_SUBS,
+  };
+}
+
+export { respondToBid } from './engines/bids.js';

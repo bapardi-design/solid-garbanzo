@@ -2,7 +2,7 @@
 import { countEventTypes, type Event } from '../core/events.js';
 import type { World } from '../core/schema.js';
 import { overall } from '../rating.js';
-import { tierFromLeagueId } from '../engines/season.js';
+import { tierFromLeagueId } from '../core/schema.js';
 
 export interface SeasonMetrics {
   season: number;

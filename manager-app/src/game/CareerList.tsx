@@ -51,8 +51,9 @@ export function CareerList() {
               <h3>{c.clubName}</h3>
               <div className="meta">{c.managerName} · season {c.season} · {c.storage === 'cloud' ? 'cloud' : 'this device'}</div>
               <div className="muted">
-                {c.summary?.careerOver ? <span className="pill bad">sacked</span> : <span className="pill">Div {c.summary?.tier ?? '?'} · {c.summary?.position ?? '?'}th</span>}{' '}
-                <span className="mono">{money(c.summary?.balance ?? 0)}</span>
+                {c.summary?.careerOver ? <span className="pill bad">sacked</span> : <span className="pill">{c.summary?.leagueName ?? `Div ${c.summary?.tier ?? '?'}`} · {c.summary?.position ?? '?'}th</span>}{' '}
+                <span className="mono">{money(c.summary?.balance ?? 0)}</span>{' '}
+                {c.summary?.world === 'real' ? <span className="pill accent">real world</span> : null}
               </div>
               <div className="actions">
                 <Link href={`/play/${c.id}`} className="btn primary small">{c.summary?.careerOver ? 'Review' : 'Continue'}</Link>

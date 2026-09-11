@@ -29,6 +29,8 @@ export interface Player {
   name: string;
   age: number;
   position: Position;
+  /** Three-letter nation code. */
+  nationality: string;
   attrs: Attributes;
   /** Ceiling for overall rating (1-99). */
   potential: number;
@@ -71,6 +73,9 @@ export interface Club {
   id: string;
   name: string;
   short: string;
+  city: string;
+  nationId: string;
+  /** Tier code (e.g. ENG-T1) or the current league competition id. */
   leagueId: string;
   reputation: number;
   balance: number;
@@ -101,6 +106,7 @@ export interface CompetitionLeague {
   id: string;
   kind: 'league';
   name: string;
+  nationId: string;
   season: number;
   tier: number;
   clubIds: string[];
@@ -109,15 +115,25 @@ export interface CompetitionLeague {
   complete: boolean;
 }
 
+export type CupKind = 'domestic' | 'leagueCup' | 'continental';
+
 export interface CompetitionCup {
   id: string;
   kind: 'cup';
+  cupKind: CupKind;
   name: string;
+  /** Null for continental competitions. */
+  nationId: string | null;
   season: number;
   clubIds: string[];
   alive: string[];
+  /** Knockout round number; during a group stage this is 0. */
   round: number;
   totalRounds: number;
+  /** Group stage, when the cup has one: groups of club ids and the number of group matchdays. */
+  groups: string[][] | null;
+  groupRounds: number;
+  stage: 'groups' | 'knockout';
   complete: boolean;
   winnerId: string | null;
 }
@@ -138,16 +154,56 @@ export interface GoalEvent {
   assistId: string | null;
 }
 
+/** A half-time substitution. Minute is always 46 for now. */
+export interface MatchSub {
+  clubId: string;
+  offId: string;
+  onId: string;
+  minute: number;
+}
+
 export interface MatchReport {
   homeXI: string[];
   awayXI: string[];
   homeFormation: string;
   awayFormation: string;
+  /** Pre-match expected goals over 90 minutes. */
   lambda: { home: number; away: number };
   factors: { home: GoalFactor[]; away: GoalFactor[] };
+  /** Set when the second half was played on a different basis (a half-time change). */
+  second: { lambda: { home: number; away: number }; factors: { home: GoalFactor[]; away: GoalFactor[] } } | null;
   goals: GoalEvent[];
   penalties: { home: number; away: number } | null;
   attendance: number;
+  /** Score after 45 minutes. */
+  halfTimeScore: { home: number; away: number };
+  subs: MatchSub[];
+  /** Tactic switched at half time, when one was. */
+  tacticChange: { clubId: string; from: Tactic; to: Tactic } | null;
+}
+
+/**
+ * A match of the human manager's paused at half time. Lives in the world so it
+ * survives a save and reload; cleared when the match is finished.
+ */
+export interface HalfTimeState {
+  fixtureId: string;
+  /** The human manager's club. */
+  clubId: string;
+  homeXI: string[];
+  awayXI: string[];
+  homeFormation: string;
+  awayFormation: string;
+  homeTactic: Tactic;
+  awayTactic: Tactic;
+  lambda: { home: number; away: number };
+  factors: { home: GoalFactor[]; away: GoalFactor[] };
+  goals: GoalEvent[];
+  homeGoals: number;
+  awayGoals: number;
+  attendance: number;
+  /** Fixtures of the same day still to play once the match resumes. */
+  remainingFixtureIds: string[];
 }
 
 export interface Fixture {
@@ -158,6 +214,8 @@ export interface Fixture {
   day: number;
   homeClubId: string;
   awayClubId: string;
+  /** Group index for group-stage fixtures. */
+  group: number | null;
   knockout: boolean;
   played: boolean;
   homeGoals: number;
@@ -188,6 +246,10 @@ export interface SeasonSummary {
   topScorer: { playerId: string; goals: number } | null;
   /** Squad size per club at the final whistle, before contract expiries. */
   squadSizes: Record<string, number>;
+  /** Final league position per club. */
+  positions: Record<string, number>;
+  /** End-of-season awards, filled by AWARDS_GIVEN. */
+  awards: { title: string; nationId: string | null; playerId: string | null; clubId: string | null; managerId: string | null; detail: string }[];
 }
 
 export interface Indexes {
@@ -197,13 +259,58 @@ export interface Indexes {
   fixturesByCompetition: Record<string, string[]>;
 }
 
+export interface Nation {
+  id: string;
+  name: string;
+  adjective: string;
+  tiers: number[];
+  leagueNames: string[];
+  cupName: string;
+  leagueCupName: string | null;
+  coefficient: number;
+  continentalSlots: number;
+  currency: string;
+}
+
+export type NewsCategory = 'transfer' | 'rumour' | 'bid' | 'contract' | 'manager' | 'injury' | 'match' | 'board' | 'award' | 'record' | 'cup';
+
+export interface NewsItem {
+  id: string;
+  day: number;
+  season: number;
+  category: NewsCategory;
+  headline: string;
+  body: string;
+  clubIds: string[];
+  playerId: string | null;
+  nationId: string | null;
+}
+
+export interface TransferBid {
+  id: string;
+  day: number;
+  playerId: string;
+  fromClubId: string;
+  toClubId: string;
+  fee: number;
+  /** Day the bid lapses if unanswered. */
+  expiresDay: number;
+}
+
 export interface WorldConfig {
   seed: string;
+  /** 'real' builds the real-world dataset; 'custom' generates fictional nations. */
+  world: 'real' | 'custom';
+  /** Nations to include in real mode (ENG, ESP, GER, ITA, FRA). */
+  nations: string[];
+  /** Custom mode: tiers and clubs per tier for the single fictional nation. */
   leagues: number;
   clubsPerLeague: number;
   squadSize: number;
   seasonLength: number;
   cup: boolean;
+  /** Continental cup for the top clubs of each nation. */
+  continental: boolean;
 }
 
 export interface World {
@@ -213,6 +320,7 @@ export interface World {
   season: number;
   seasonStartDay: number;
   seasonLength: number;
+  nations: Record<string, Nation>;
   players: Record<string, Player>;
   clubs: Record<string, Club>;
   managers: Record<string, Manager>;
@@ -220,24 +328,36 @@ export interface World {
   competitions: Record<string, Competition>;
   fixtures: Record<string, Fixture>;
   transfers: TransferRecord[];
+  news: NewsItem[];
+  pendingBids: TransferBid[];
   freeAgents: string[];
   history: SeasonSummary[];
   counters: Record<string, number>;
   idx: Indexes;
   /** Club controlled by a human manager, if any. */
   humanClubId: string | null;
+  /** The human's manager record, kept across sackings and moves. */
+  humanManagerId: string | null;
   /** Set when the human manager loses the job. */
   careerOver: { day: number; season: number; reason: string } | null;
+  /** The human's match paused at half time, if one is. */
+  halfTime: HalfTimeState | null;
 }
 
 export const DEFAULT_CONFIG: WorldConfig = {
   seed: 'default',
+  world: 'real',
+  nations: ['ENG', 'ESP', 'GER', 'ITA', 'FRA'],
   leagues: 2,
   clubsPerLeague: 12,
-  squadSize: 24,
+  squadSize: 25,
   seasonLength: 364,
   cup: true,
+  continental: true,
 };
+
+/** Small fictional world used by tests and quick runs. */
+export const CUSTOM_CONFIG: WorldConfig = { ...DEFAULT_CONFIG, world: 'custom', nations: ['CUS'], continental: false, squadSize: 24 };
 
 export function createEmptyWorld(config: WorldConfig): World {
   return {
@@ -247,6 +367,7 @@ export function createEmptyWorld(config: WorldConfig): World {
     season: 1,
     seasonStartDay: 0,
     seasonLength: config.seasonLength,
+    nations: {},
     players: {},
     clubs: {},
     managers: {},
@@ -254,12 +375,16 @@ export function createEmptyWorld(config: WorldConfig): World {
     competitions: {},
     fixtures: {},
     transfers: [],
+    news: [],
+    pendingBids: [],
     freeAgents: [],
     history: [],
     counters: {},
     idx: { squadByClub: {}, contractByPlayer: {}, fixturesByDay: {}, fixturesByCompetition: {} },
     humanClubId: null,
+    humanManagerId: null,
     careerOver: null,
+    halfTime: null,
   };
 }
 
@@ -288,5 +413,18 @@ export function leagueOf(world: World, clubId: string): CompetitionLeague | null
 
 export function tierOfClub(world: World, clubId: string): number {
   const league = leagueOf(world, clubId);
-  return league ? league.tier : 1;
+  return league ? league.tier : tierFromLeagueId(world.clubs[clubId].leagueId);
 }
+
+/** Tier code used on clubs between seasons, e.g. ENG-T2. */
+export function tierCode(nationId: string, tier: number): string { return `${nationId}-T${tier}`; }
+export function tierFromLeagueId(id: string): number {
+  const m = /-T(\d+)/.exec(id);
+  return m ? Number(m[1]) : 1;
+}
+export function nationFromLeagueId(id: string): string {
+  const m = /^([A-Z]+)-/.exec(id);
+  return m ? m[1] : 'CUS';
+}
+export function isRealWorld(world: World): boolean { return world.config.world === 'real'; }
+export function bottomTier(world: World, nationId: string): number { return world.nations[nationId]?.tiers.length ?? world.config.leagues; }

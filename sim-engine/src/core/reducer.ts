@@ -52,12 +52,58 @@ function detachManager(w: World, managerId: string, clubId: string): void {
   if (c && c.managerId === managerId) c.managerId = null;
 }
 
+/**
+ * Keeps the world bounded: fixtures older than the previous season are
+ * dropped and last season's match reports are kept only for the human club.
+ */
+function pruneFixtures(w: World, season: number): void {
+  const human = w.humanClubId;
+  for (const id of Object.keys(w.fixtures)) {
+    const f = w.fixtures[id];
+    if (f.season < season - 1) {
+      delete w.fixtures[id];
+      const day = w.idx.fixturesByDay[f.day];
+      if (day) { const i = day.indexOf(id); if (i >= 0) day.splice(i, 1); if (day.length === 0) delete w.idx.fixturesByDay[f.day]; }
+      const comp = w.idx.fixturesByCompetition[f.competitionId];
+      if (comp) { const i = comp.indexOf(id); if (i >= 0) comp.splice(i, 1); }
+    } else if (f.season < season && f.report && f.homeClubId !== human && f.awayClubId !== human) {
+      f.report = { ...f.report, factors: { home: [], away: [] } };
+    }
+  }
+}
+
 export function reduce(w: World, e: Event): void {
   switch (e.type) {
     case 'WORLD_CREATED': {
       w.seed = e.payload.seed;
       w.config = e.payload.config;
       w.seasonLength = e.payload.config.seasonLength;
+      break;
+    }
+    case 'NATION_CREATED': {
+      const n = structuredClone(e.payload.nation);
+      w.nations[n.id] = n;
+      break;
+    }
+    case 'NEWS_PUBLISHED': {
+      for (const item of e.payload.items) { noteId(w, item.id); w.news.push(structuredClone(item)); }
+      if (w.news.length > 600) w.news.splice(0, w.news.length - 600);
+      break;
+    }
+    case 'BID_RECEIVED': {
+      const bid = structuredClone(e.payload.bid);
+      noteId(w, bid.id);
+      w.pendingBids.push(bid);
+      break;
+    }
+    case 'BID_RESOLVED': {
+      const i = w.pendingBids.findIndex((b) => b.id === e.payload.bidId);
+      if (i >= 0) w.pendingBids.splice(i, 1);
+      break;
+    }
+    case 'AWARDS_GIVEN': {
+      const summary = w.history.find((h) => h.season === e.payload.season);
+      if (summary) summary.awards = structuredClone(e.payload.awards);
       break;
     }
     case 'CLUB_CREATED': {
@@ -123,6 +169,7 @@ export function reduce(w: World, e: Event): void {
       w.season = e.payload.season;
       w.seasonStartDay = e.payload.startDay;
       for (const c of Object.values(w.clubs)) { c.ledger = {}; c.form = []; }
+      pruneFixtures(w, e.payload.season);
       break;
     }
     case 'DAY_ADVANCED': {
@@ -135,8 +182,13 @@ export function reduce(w: World, e: Event): void {
       }
       break;
     }
+    case 'HALF_TIME_REACHED': {
+      w.halfTime = structuredClone(e.payload.state);
+      break;
+    }
     case 'MATCH_PLAYED': {
       const { fixtureId, homeGoals, awayGoals, winnerId, report, playerStats } = e.payload;
+      if (w.halfTime?.fixtureId === fixtureId) w.halfTime = null;
       const f = w.fixtures[fixtureId];
       f.played = true;
       f.homeGoals = homeGoals;
@@ -185,8 +237,8 @@ export function reduce(w: World, e: Event): void {
     case 'FINANCE_POSTED': {
       for (const entry of e.payload.entries) {
         const c = w.clubs[entry.clubId];
-        c.balance += entry.amount;
-        c.ledger[entry.category] = (c.ledger[entry.category] ?? 0) + entry.amount;
+        c.balance = Math.round((c.balance + entry.amount) * 10) / 10;
+        c.ledger[entry.category] = Math.round(((c.ledger[entry.category] ?? 0) + entry.amount) * 10) / 10;
       }
       break;
     }
@@ -287,6 +339,7 @@ export function reduce(w: World, e: Event): void {
       comp.alive = [...e.payload.alive];
       comp.winnerId = e.payload.winnerId;
       comp.complete = e.payload.winnerId !== null;
+      if (comp.round > 0) comp.stage = 'knockout';
       break;
     }
     case 'BUDGETS_SET': {
@@ -330,7 +383,20 @@ export function reduce(w: World, e: Event): void {
       m.unemployedSince = null;
       club.managerId = m.id;
       w.humanClubId = club.id;
+      w.humanManagerId = m.id;
       w.careerOver = null;
+      break;
+    }
+    case 'MANAGER_MOVED': {
+      const m = w.managers[e.payload.managerId];
+      const to = w.clubs[e.payload.toClubId];
+      if (e.payload.fromClubId) detachManager(w, e.payload.managerId, e.payload.fromClubId);
+      if (to.managerId && to.managerId !== m.id) detachManager(w, to.managerId, to.id);
+      m.clubId = to.id;
+      m.unemployedSince = null;
+      m.contractEndSeason = e.payload.contractEndSeason;
+      to.managerId = m.id;
+      if (w.humanManagerId === m.id) { w.humanClubId = to.id; w.careerOver = null; }
       break;
     }
     case 'PLAYER_LISTED': {

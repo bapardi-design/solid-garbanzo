@@ -5,11 +5,19 @@
  */
 import type { GameSnapshot } from 'sim-engine';
 
+export interface InboxItem { day: number; season: number; text: string }
+
 export interface CareerSummary {
   tier: number;
   position: number;
   balance: number;
   careerOver: boolean;
+  nationId?: string;
+  leagueName?: string;
+  world?: 'real' | 'custom';
+  /** Legacy fields from saves made before news lived in the world. */
+  inbox?: InboxItem[];
+  lastResults?: string[];
 }
 
 export interface CareerMeta {

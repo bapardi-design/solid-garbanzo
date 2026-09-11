@@ -1,15 +1,32 @@
-/** Club finances: wages, sponsorship, gate receipts, prize money, budgets. */
+/** Club finances: wages, commercial income, gate receipts, prize money, budgets. */
 import type { Ctx } from '../core/context.js';
 import type { FinanceEntry } from '../core/events.js';
-import type { CompetitionLeague, Fixture } from '../core/schema.js';
-import { squad } from '../core/schema.js';
+import type { CompetitionCup, CompetitionLeague, Fixture, World } from '../core/schema.js';
+import { isRealWorld, squad, tierOfClub } from '../core/schema.js';
 import { squadStrength, weeklyWageBill } from '../rating.js';
 import type { Standing } from '../matchday/table.js';
+import { NATIONS } from '../world/nations.js';
 
 export const TICKET_PRICE_K = 0.022;
 export const SPONSOR_PER_REP_WEEKLY = 2.6;
 /** Weekly running costs (staff, stadium, academy) per reputation point. */
 export const OPERATIONS_PER_REP_WEEKLY = 2;
+
+/** Real-world ticket prices by tier, in k. */
+const REAL_TICKET_BY_TIER = [0.045, 0.028, 0.02, 0.016];
+const REAL_TICKET_CONTINENTAL = 0.06;
+
+/** Weekly commercial and broadcast income, in k. */
+export function weeklyCommercial(world: World, reputation: number): number {
+  if (!isRealWorld(world)) return Math.round(reputation * SPONSOR_PER_REP_WEEKLY);
+  return Math.round(Math.pow(reputation / 100, 4) * 5500);
+}
+
+/** Weekly running costs, in k. */
+export function weeklyOperations(world: World, reputation: number): number {
+  if (!isRealWorld(world)) return Math.round(reputation * OPERATIONS_PER_REP_WEEKLY);
+  return Math.round(Math.pow(reputation / 100, 3) * 1500 + 30);
+}
 
 export function weeklyFinance(ctx: Ctx): void {
   const { world } = ctx;
@@ -17,29 +34,48 @@ export function weeklyFinance(ctx: Ctx): void {
   for (const club of Object.values(world.clubs)) {
     const wages = weeklyWageBill(world, club.id);
     if (wages > 0) entries.push({ clubId: club.id, category: 'wages', amount: -wages });
-    entries.push({ clubId: club.id, category: 'sponsorship', amount: Math.round(club.reputation * SPONSOR_PER_REP_WEEKLY) });
-    entries.push({ clubId: club.id, category: 'operations', amount: -Math.round(club.reputation * OPERATIONS_PER_REP_WEEKLY) });
+    entries.push({ clubId: club.id, category: 'sponsorship', amount: weeklyCommercial(world, club.reputation) });
+    entries.push({ clubId: club.id, category: 'operations', amount: -weeklyOperations(world, club.reputation) });
   }
   ctx.emit('FINANCE_POSTED', { entries });
 }
 
-export function matchdayIncome(fixture: Fixture, attendance: number): FinanceEntry {
-  return { clubId: fixture.homeClubId, category: 'gate', amount: Math.round(attendance * TICKET_PRICE_K) };
+export function ticketPrice(world: World, fixture: Fixture): number {
+  if (!isRealWorld(world)) return TICKET_PRICE_K;
+  const comp = world.competitions[fixture.competitionId];
+  if (comp?.kind === 'cup' && comp.cupKind === 'continental') return REAL_TICKET_CONTINENTAL;
+  const tier = comp?.kind === 'league' ? comp.tier : tierOfClub(world, fixture.homeClubId);
+  return REAL_TICKET_BY_TIER[Math.min(tier, REAL_TICKET_BY_TIER.length) - 1];
+}
+
+export function matchdayIncome(world: World, fixture: Fixture, attendance: number): FinanceEntry {
+  return { clubId: fixture.homeClubId, category: 'gate', amount: Math.round(attendance * ticketPrice(world, fixture)) };
+}
+
+function prizeSpec(nationId: string | null, tier: number): { base: number; perPlace: number } {
+  const spec = (nationId && NATIONS[nationId]) || NATIONS.CUS;
+  const i = Math.min(tier, spec.prize.base.length) - 1;
+  return { base: spec.prize.base[i], perPlace: spec.prize.perPlace[i] };
 }
 
 export function prizeMoney(comp: CompetitionLeague, table: Standing[]): FinanceEntry[] {
-  const tierBase = comp.tier === 1 ? 5000 : comp.tier === 2 ? 1500 : 500;
-  const perPlace = comp.tier === 1 ? 500 : comp.tier === 2 ? 120 : 40;
+  const { base, perPlace } = prizeSpec(comp.nationId, comp.tier);
   return table.map((row) => ({
     clubId: row.clubId,
     category: 'prize',
-    amount: tierBase + (table.length - row.position) * perPlace,
+    amount: base + (table.length - row.position) * perPlace,
   }));
 }
 
-export function cupPrize(clubId: string, round: number): FinanceEntry {
-  return { clubId, category: 'cup', amount: 150 * round * round };
+export function cupPrize(world: World, comp: CompetitionCup, clubId: string, round: number): FinanceEntry {
+  if (!isRealWorld(world)) return { clubId, category: 'cup', amount: 150 * round * round };
+  const amount = comp.cupKind === 'continental' ? 10000 + 3000 * round : comp.cupKind === 'leagueCup' ? 100 * round * round : 200 * round * round;
+  return { clubId, category: 'cup', amount };
 }
+
+/** Paid to every club entering the continental group stage. */
+export function continentalEntryFee(world: World): number { return isRealWorld(world) ? 15000 : 800; }
+export function groupWinBonus(world: World): number { return isRealWorld(world) ? 2000 : 100; }
 
 /** Projected season income used to size wage and transfer budgets. */
 export function projectedSeasonIncome(ctx: Ctx, clubId: string): number {
@@ -47,11 +83,15 @@ export function projectedSeasonIncome(ctx: Ctx, clubId: string): number {
   const club = world.clubs[clubId];
   const league = world.competitions[club.leagueId];
   const tier = league && league.kind === 'league' ? league.tier : 1;
-  const homeGames = league && league.kind === 'league' ? league.clubIds.length - 1 : 15;
-  const gate = club.stadiumCapacity * 0.7 * TICKET_PRICE_K * homeGames;
-  const sponsor = club.reputation * SPONSOR_PER_REP_WEEKLY * 52;
-  const prize = tier === 1 ? 7500 : tier === 2 ? 2200 : 700;
-  const operations = club.reputation * OPERATIONS_PER_REP_WEEKLY * 52;
+  const n = league && league.kind === 'league' ? league.clubIds.length : 16;
+  const homeGames = n - 1;
+  const real = isRealWorld(world);
+  const price = real ? REAL_TICKET_BY_TIER[Math.min(tier, REAL_TICKET_BY_TIER.length) - 1] : TICKET_PRICE_K;
+  const gate = club.stadiumCapacity * (real ? 0.85 : 0.7) * price * homeGames;
+  const sponsor = weeklyCommercial(world, club.reputation) * 52;
+  const spec = prizeSpec(club.nationId, tier);
+  const prize = real ? spec.base + spec.perPlace * (n / 2) : tier === 1 ? 7500 : tier === 2 ? 2200 : 700;
+  const operations = weeklyOperations(world, club.reputation) * 52;
   return gate + sponsor + prize - operations;
 }
 

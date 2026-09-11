@@ -1,22 +1,33 @@
 'use client';
 import Link from 'next/link';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import Engine, { type Event, type Fixture } from 'sim-engine';
+import Engine, { type Event, type Fixture, type HalfTimeDecision } from 'sim-engine';
 import { LIMITS } from '@/lib/entitlements';
 import { useSession } from './session';
 import { cloud, local, StoreError, type CareerRecord } from './store';
 import { summarise } from './summary';
-import { money } from './format';
-import { FinancesPanel, FixturesPanel, MarketPanel, OverviewPanel, SquadPanel, TablePanel, TacticsPanel } from './panels';
+import { dayLabel } from './format';
 import { UpgradeButton } from '@/components/UpgradeButton';
+import { HomePanel } from './panels/Home';
+import { NewsPanel } from './panels/News';
+import { SquadPanel } from './panels/Squad';
+import { TransfersPanel } from './panels/Transfers';
+import { TacticsPanel } from './panels/Tactics';
+import { FixturesPanel } from './panels/Fixtures';
+import { CompetitionsPanel } from './panels/Competitions';
+import { FinancesPanel } from './panels/Finances';
+import { ClubPanel, JobsPanel } from './panels/Club';
+import { ManagedMatch, MatchLive } from './panels/MatchLive';
+import { Crest, FormDots, PlayerDrawer } from './panels/shared';
+import { identity } from './brand';
+import { money, ord } from './format';
 
 type GameT = ReturnType<typeof Engine.resumeGame>;
-type Tab = 'overview' | 'squad' | 'market' | 'tactics' | 'fixtures' | 'table' | 'finances';
-export interface NewsItem { day: number; season: number; text: string }
+type Tab = 'home' | 'news' | 'squad' | 'transfers' | 'tactics' | 'fixtures' | 'competitions' | 'finances' | 'club' | 'jobs';
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'overview', label: 'Overview' }, { id: 'squad', label: 'Squad' }, { id: 'market', label: 'Transfers' }, { id: 'tactics', label: 'Tactics' },
-  { id: 'fixtures', label: 'Fixtures' }, { id: 'table', label: 'Table' }, { id: 'finances', label: 'Finances' },
+  { id: 'home', label: 'Home' }, { id: 'news', label: 'News' }, { id: 'squad', label: 'Squad' }, { id: 'transfers', label: 'Transfers' }, { id: 'tactics', label: 'Tactics' },
+  { id: 'fixtures', label: 'Fixtures' }, { id: 'competitions', label: 'Competitions' }, { id: 'finances', label: 'Finances' }, { id: 'club', label: 'Club' }, { id: 'jobs', label: 'Jobs' },
 ];
 
 export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
@@ -24,14 +35,20 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
   const gameRef = useRef(game);
   const [, force] = useState(0);
   const rerender = useCallback(() => force((n) => n + 1), []);
-  const [tab, setTab] = useState<Tab>('overview');
+  const [tab, setTab] = useState<Tab>('home');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [notice, setNotice] = useState<{ kind: 'info' | 'error' | 'good'; text: string } | null>(null);
-  const [news, setNews] = useState<NewsItem[]>([]);
-  const [lastResults, setLastResults] = useState<string[]>([]);
+  const [live, setLive] = useState<Fixture | null>(null);
+  const [lastFixtureId, setLastFixtureId] = useState<string | null>(null);
+  const [player, setPlayer] = useState<string | null>(null);
+  const [reportBusy, setReportBusy] = useState(false);
   const [paywall, setPaywall] = useState(false);
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved');
+  const [stopAtMilestones, setStopAtMilestones] = useState(true);
+  const [manageLive, setManageLive] = useState(true);
+  // Fixture id of the match being managed live; kept after the pause clears so the modal survives to full time.
+  const [managed, setManaged] = useState<string | null>(() => game.world.halfTime?.fixtureId ?? null);
 
   const { world, ctx } = gameRef.current;
   const clubId = world.humanClubId ?? record.clubId;
@@ -41,7 +58,8 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
   const save = useCallback(async () => {
     const g = gameRef.current;
     setSaveState('saving');
-    const rec: CareerRecord = { ...record, season: g.world.season, day: g.world.day, summary: summarise(g, clubId), snapshot: Engine.snapshotGame(g), updatedAt: new Date().toISOString() };
+    const cid = g.world.humanClubId ?? record.clubId;
+    const rec: CareerRecord = { ...record, clubId: cid, clubName: g.world.clubs[cid].name, season: g.world.season, day: g.world.day, summary: summarise(g, cid), snapshot: Engine.snapshotGame(g), updatedAt: new Date().toISOString() };
     try {
       if (record.storage === 'local') await local.put(rec); else await cloud.update(rec);
       setSaveState('saved');
@@ -50,72 +68,75 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
       if (e instanceof StoreError && e.code === 'season_cap') setPaywall(true);
       else setNotice({ kind: 'error', text: `Save failed: ${(e as Error).message}` });
     }
-  }, [record, clubId]);
+  }, [record]);
 
-  function digest(events: Event[]) {
-    const g = gameRef.current;
-    const w = g.world;
-    const items: NewsItem[] = [];
-    const played: string[] = [];
-    for (const e of events) {
-      const item = (text: string) => items.push({ day: e.day - w.seasonStartDay, season: w.season, text });
-      switch (e.type) {
-        case 'MATCH_PLAYED': {
-          const f = w.fixtures[e.payload.fixtureId];
-          if (f.homeClubId === clubId || f.awayClubId === clubId) played.push(f.id);
-          break;
-        }
-        case 'MANAGER_SACKED': item(`${w.clubs[e.payload.clubId].name} sack ${w.managers[e.payload.managerId].name} (${e.payload.reason}).`); break;
-        case 'PLAYER_TRANSFERRED': {
-          const r = e.payload.record;
-          if (r.fee > 0 || r.toClubId === clubId || r.fromClubId === clubId) item(`${w.players[r.playerId].name} joins ${w.clubs[r.toClubId].name}${r.fromClubId ? ` from ${w.clubs[r.fromClubId].name}` : ''}${r.fee ? ` for ${money(r.fee)}` : ' on a free'}.`);
-          break;
-        }
-        case 'CONTRACT_EXPIRED': if (e.payload.clubId === clubId) item(`${w.players[e.payload.playerId].name}'s contract has expired. He leaves on a free.`); break;
-        case 'PLAYER_INJURED': { const p = w.players[e.payload.playerId]; if (p.clubId === clubId) item(`${p.name} injured, out for ${e.payload.days} days.`); break; }
-        case 'CUP_ROUND_ADVANCED': if (e.payload.winnerId) item(`${w.clubs[e.payload.winnerId].name} win the ${w.competitions[e.payload.competitionId].name}.`); break;
-        case 'SEASON_ENDED': { const s = e.payload.summary; item(`Season ${s.season} over. Promoted: ${s.promoted.map((id) => w.clubs[id].name).join(', ') || 'none'}. Relegated: ${s.relegated.map((id) => w.clubs[id].name).join(', ') || 'none'}.`); break; }
-        case 'SEASON_STARTED': item(`Season ${e.payload.season} begins. The board has set new budgets and a new target.`); break;
-        case 'BUDGETS_SET': { const b = e.payload.budgets[clubId]; if (b) item(`Board target: finish ${b.boardTarget}${ordinal(b.boardTarget)}. Transfer budget ${money(b.transferBudget)}, wage budget ${money(b.wageBudget)} a week.`); break; }
-        case 'CAREER_ENDED': item(`You have been sacked: ${e.payload.reason}.`); break;
-        default: break;
-      }
-    }
-    if (items.length) setNews((n) => [...items.reverse(), ...n].slice(0, 60));
-    if (played.length) setLastResults(played);
-  }
-
-  /** Advance until the club's next match has been played, a season boundary needs a decision, or the career ends. */
+  /** Advance until the club's next match has been played, a milestone needs a decision, or the career ends. */
   function continueToNextMatch() {
     if (busy) return;
     const g = gameRef.current;
-    if (g.world.careerOver) return;
+    if (g.world.careerOver || g.world.halfTime) return;
     if (Engine.daysLeftInSeason(g.world) === 0 && g.world.season >= maxSeasons) { setPaywall(true); return; }
     setBusy(true); setProgress(0); setNotice(null);
     const start = g.world.day;
-    const limit = 80;
+    const limit = 60;
     const tick = () => {
       const w = g.world;
+      const cid = w.humanClubId ?? clubId;
       const before = w.day;
-      const events = Engine.step(g, 1);
-      digest(events);
-      const playedToday = events.some((e) => e.type === 'MATCH_PLAYED' && (w.fixtures[e.payload.fixtureId].homeClubId === clubId || w.fixtures[e.payload.fixtureId].awayClubId === clubId));
+      const events: Event[] = Engine.step(g, 1, { halfTime: manageLive });
+      const myMatch = events.find((e) => e.type === 'MATCH_PLAYED' && (w.fixtures[e.payload.fixtureId].homeClubId === cid || w.fixtures[e.payload.fixtureId].awayClubId === cid));
+      const paused = w.halfTime !== null;
       const seasonEnd = Engine.daysLeftInSeason(w) === 0;
       const sd = Engine.seasonDay(w);
-      // Pause where a manager needs to act: new season, and the last day of each transfer window.
-      const milestone = sd === 0 ? `Season ${w.season} begins. The transfer window is open for four weeks; check the board's target and your budgets.`
-        : sd === 27 ? 'Last day of the summer window. Any deals must be done now.'
-        : sd === 168 ? 'The mid-season window is open for four weeks.'
-        : sd === 195 ? 'Last day of the mid-season window.' : null;
-      const stop = playedToday || w.careerOver !== null || w.day - start >= limit || (seasonEnd && w.day > before) || milestone !== null;
-      setProgress(Math.min(100, ((w.day - start) / 14) * 100));
+      const bid = events.some((e) => e.type === 'BID_RECEIVED');
+      const milestone = !stopAtMilestones ? null
+        : sd === 0 ? `Season ${w.season} begins. The transfer window is open for four weeks. Check the board's target, the budgets and the market.`
+        : sd === Engine.SUMMER_WINDOW[1] ? 'Deadline day for the summer window. Any deals must be done today.'
+        : sd === Engine.WINTER_WINDOW[0] ? 'The winter window is open for four weeks.'
+        : sd === Engine.WINTER_WINDOW[1] ? 'Deadline day for the winter window.'
+        : bid ? 'A club has made an offer for one of your players. Answer it under Transfers → Offers.' : null;
+      const stop = paused || myMatch !== undefined || w.careerOver !== null || w.day - start >= limit || (seasonEnd && w.day > before) || milestone !== null;
+      setProgress(Math.min(100, ((w.day - start) / 10) * 100));
       if (stop) {
         setBusy(false); setProgress(null); rerender(); void save();
-        if (milestone) setNotice({ kind: 'info', text: milestone });
-        else if (seasonEnd && !playedToday) setNotice({ kind: 'info', text: `Season ${w.season} is complete. Continue to start season ${w.season + 1}.` });
+        if (paused) {
+          setManaged(w.halfTime!.fixtureId);
+        } else if (myMatch && myMatch.type === 'MATCH_PLAYED') {
+          const f = w.fixtures[myMatch.payload.fixtureId];
+          setLastFixtureId(f.id);
+          setLive(f);
+        } else if (milestone) setNotice({ kind: 'info', text: milestone });
+        else if (w.careerOver) setNotice({ kind: 'error', text: `Sacked: ${w.careerOver.reason}` });
+        else if (seasonEnd) setNotice({ kind: 'info', text: `Season ${w.season} is complete. Continue to start season ${w.season + 1}.` });
       } else setTimeout(tick, 0);
     };
     tick();
+  }
+
+  /** Plays the second half after the half-time decision and returns the finished fixture. */
+  const resumeMatch = useCallback((decision: HalfTimeDecision): Fixture => {
+    const g = gameRef.current;
+    const fixtureId = g.world.halfTime!.fixtureId;
+    Engine.resumeHalfTime(g, decision);
+    setLastFixtureId(fixtureId);
+    rerender();
+    void save();
+    return g.world.fixtures[fixtureId];
+  }, [rerender, save]);
+
+  function openReport() {
+    const g = gameRef.current;
+    if (session.plan !== 'pro' && session.paymentsEnabled) { setPaywall(true); return; }
+    if (g.seasons.length === 0) { setNotice({ kind: 'info', text: 'The season report unlocks once your first season is complete.' }); return; }
+    setReportBusy(true);
+    try {
+      const html = Engine.careerReport(g);
+      if (!html) return;
+      const page = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head><body>${html}</body></html>`;
+      const url = URL.createObjectURL(new Blob([page], { type: 'text/html' }));
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } finally { setReportBusy(false); }
   }
 
   function afterAction(result: { ok: boolean; message: string }) {
@@ -124,21 +145,53 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
   }
 
   const board = Engine.boardStatus(ctx);
+  const ident = identity(club.name);
+  const currency = Engine.currencyFor(world, clubId);
+  const position = board?.position ?? null;
   const seasonDay = Engine.seasonDay(world);
-  const ownFixtures = useMemo(() => Object.values(world.fixtures).filter((f) => f.season === world.season && (f.homeClubId === clubId || f.awayClubId === clubId)).sort((a, b) => a.day - b.day), [world, clubId, world.day]); // eslint-disable-line react-hooks/exhaustive-deps
+  const ownFixtures = useMemo(() => Object.values(world.fixtures).filter((f) => f.season === world.season && (f.homeClubId === clubId || f.awayClubId === clubId)).sort((a, b) => a.day - b.day), [world, clubId, world.day, world.season]); // eslint-disable-line react-hooks/exhaustive-deps
   const nextFixture: Fixture | undefined = ownFixtures.find((f) => !f.played);
+  const lastFixture = (lastFixtureId && world.fixtures[lastFixtureId]) || [...ownFixtures].reverse().find((f) => f.played) || null;
+  const league = Engine.leagueOf(world, clubId);
+  const daysToNext = nextFixture ? nextFixture.day - world.day : null;
+  const bids = world.pendingBids.length;
+  const onPlayer = (id: string) => setPlayer(id);
+  const goTab = (t: string) => setTab(t as Tab);
 
   return (
-    <div>
-      <div className="topbar">
-        <h1><small>{record.managerName} · {club.name}</small>Season {world.season} · week {Math.floor(seasonDay / 7) + 1}</h1>
-        <div className="actions">
-          <span className="muted mono">{saveState === 'saving' ? 'saving…' : saveState === 'saved' ? 'saved' : saveState === 'error' ? 'not saved' : 'unsaved'}</span>
-          <button className="btn" onClick={() => void save()} disabled={busy}>Save</button>
-          <Link href="/play" className="btn">Careers</Link>
-          <button className="btn primary" onClick={continueToNextMatch} disabled={busy || world.careerOver !== null}>
-            {busy ? 'Playing…' : world.careerOver ? 'Career over' : nextFixture ? `Play to next match` : Engine.daysLeftInSeason(world) === 0 ? 'Start next season' : 'Play to season end'}
-          </button>
+    <div className="game">
+      <div className="club-bar" style={{ '--club': ident.primary, '--club-2': ident.secondary, '--club-ink': ident.ink } as React.CSSProperties}>
+        <div className="band" />
+        <div className="row">
+          <div className="club-id">
+            <Crest name={club.name} short={club.short} size="xl" title={club.name} />
+            <div>
+              <p className="eyebrow">{league?.name ?? ''} · {record.managerName}</p>
+              <h1>{club.name}</h1>
+              <p className="meta">Season {world.season} · {dayLabel(seasonDay)}{Engine.inTransferWindow(world) ? ' · window open' : ''}{nextFixture ? ` · next match in ${daysToNext}d` : ''}</p>
+            </div>
+          </div>
+          <div className="club-facts">
+            <div className="fact"><div className="v">{position ? ord(position) : '–'}<span className="muted" style={{ fontSize: 11 }}>of {board ? Engine.leagueOf(world, clubId)?.clubIds.length ?? '' : ''}</span></div><div className="k">Position</div></div>
+            <div className="fact"><div className="v"><FormDots form={club.form.slice(-5)} /></div><div className="k">Form</div></div>
+            <div className="fact"><div className="v">{money(club.balance, currency)}</div><div className="k">Bank</div></div>
+            <div className="fact"><div className="v"><span className={`pill ${board?.mood === 'delighted' || board?.mood === 'content' ? 'good' : board?.mood === 'concerned' ? 'warn' : 'bad'}`}>{board?.mood ?? '—'}</span></div><div className="k">Board</div></div>
+          </div>
+        </div>
+        <div className="toolbar">
+          <div className="toggles">
+            <label><input type="checkbox" checked={stopAtMilestones} onChange={(e) => setStopAtMilestones(e.target.checked)} /> stop at windows and offers</label>
+            <label><input type="checkbox" checked={manageLive} onChange={(e) => setManageLive(e.target.checked)} /> manage at half-time</label>
+            <span className={`savedot ${saveState}`}><i />{saveState === 'saving' ? 'saving…' : saveState === 'saved' ? 'saved' : saveState === 'error' ? 'not saved' : 'unsaved'}</span>
+          </div>
+          <div className="actions">
+            <button className="btn plain" onClick={() => void save()} disabled={busy}>Save</button>
+            <button className="btn plain" onClick={openReport} disabled={busy || reportBusy}>Report</button>
+            <Link href="/play" className="btn plain">Careers</Link>
+            <button className="btn primary" onClick={continueToNextMatch} disabled={busy || world.careerOver !== null}>
+              {busy ? 'Playing…' : world.careerOver ? 'Career over' : nextFixture ? 'Continue to match' : Engine.daysLeftInSeason(world) === 0 ? 'Start next season' : 'Play to season end'}
+            </button>
+          </div>
         </div>
       </div>
       {progress !== null ? <div className="progress" aria-hidden="true"><i style={{ width: `${progress}%` }} /></div> : null}
@@ -147,27 +200,33 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
         <section className="panel" style={{ marginBottom: 16 }}>
           <header><h2>Sacked</h2></header>
           <div className="body stack">
-            <p>{world.careerOver.reason}. Your time at {club.name} ended in season {world.careerOver.season}.</p>
-            <div className="actions"><Link href="/play/new" className="btn primary">Start a new career</Link><Link href="/play" className="btn">Back to careers</Link></div>
+            <p>{world.careerOver.reason}. Your time at {club.name} ended in season {world.careerOver.season}. Your reputation follows you: apply for a vacancy under Jobs, or start again.</p>
+            <div className="actions"><button className="btn primary" onClick={() => setTab('jobs')}>See vacancies</button><Link href="/play/new" className="btn">Start a new career</Link><Link href="/play" className="btn">Back to careers</Link></div>
           </div>
         </section>
       ) : null}
       <div className="tabs" role="tablist">
-        {TABS.map((t) => <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}>{t.label}</button>)}
+        {TABS.map((t) => <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}>{t.label}{t.id === 'transfers' && bids ? <span className="badge">{bids}</span> : null}</button>)}
       </div>
-      {tab === 'overview' ? <OverviewPanel game={gameRef.current} clubId={clubId} board={board} news={news} lastResults={lastResults} nextFixture={nextFixture} /> : null}
-      {tab === 'squad' ? <SquadPanel game={gameRef.current} clubId={clubId} onAction={afterAction} /> : null}
-      {tab === 'market' ? <MarketPanel game={gameRef.current} clubId={clubId} onAction={afterAction} /> : null}
-      {tab === 'tactics' ? <TacticsPanel game={gameRef.current} clubId={clubId} onAction={afterAction} /> : null}
-      {tab === 'fixtures' ? <FixturesPanel game={gameRef.current} clubId={clubId} fixtures={ownFixtures} /> : null}
-      {tab === 'table' ? <TablePanel game={gameRef.current} clubId={clubId} /> : null}
-      {tab === 'finances' ? <FinancesPanel game={gameRef.current} clubId={clubId} board={board} /> : null}
+      {tab === 'home' ? <HomePanel game={gameRef.current} clubId={clubId} board={board} nextFixture={nextFixture} lastFixture={lastFixture} onPlayer={onPlayer} onTab={goTab} /> : null}
+      {tab === 'news' ? <NewsPanel game={gameRef.current} clubId={clubId} onPlayer={onPlayer} /> : null}
+      {tab === 'squad' ? <SquadPanel game={gameRef.current} clubId={clubId} onPlayer={onPlayer} /> : null}
+      {tab === 'transfers' ? <TransfersPanel game={gameRef.current} clubId={clubId} onAction={afterAction} onPlayer={onPlayer} /> : null}
+      {tab === 'tactics' ? <TacticsPanel game={gameRef.current} clubId={clubId} onAction={afterAction} onPlayer={onPlayer} /> : null}
+      {tab === 'fixtures' ? <FixturesPanel game={gameRef.current} clubId={clubId} fixtures={ownFixtures} onPlayer={onPlayer} /> : null}
+      {tab === 'competitions' ? <CompetitionsPanel game={gameRef.current} clubId={clubId} onPlayer={onPlayer} /> : null}
+      {tab === 'finances' ? <FinancesPanel game={gameRef.current} clubId={clubId} board={board} onPlayer={onPlayer} /> : null}
+      {tab === 'club' ? <ClubPanel game={gameRef.current} clubId={clubId} board={board} onPlayer={onPlayer} /> : null}
+      {tab === 'jobs' ? <JobsPanel game={gameRef.current} onAction={(r) => { afterAction(r); if (r.ok) setTab('home'); }} /> : null}
+      {player ? <PlayerDrawer game={gameRef.current} playerId={player} clubId={clubId} onClose={() => setPlayer(null)} onAction={(r) => { afterAction(r); }} /> : null}
+      {live ? <MatchLive game={gameRef.current} fixture={live} clubId={clubId} onDone={() => { setLive(null); setTab('home'); }} /> : null}
+      {!live && managed ? <ManagedMatch key={managed} game={gameRef.current} clubId={clubId} onResume={resumeMatch} onDone={() => { setManaged(null); rerender(); setTab('home'); }} /> : null}
       {paywall ? (
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="paywall-title">
           <div className="modal">
-            <p className="eyebrow">Season limit</p>
-            <h2 id="paywall-title">Free careers stop after season {LIMITS.free.maxSeasons}</h2>
-            <p className="muted">Pro removes the season limit, keeps careers in the cloud, and adds season reports. This career stays exactly as it is until you upgrade.</p>
+            <p className="eyebrow">Pro</p>
+            <h2 id="paywall-title">{Engine.daysLeftInSeason(world) === 0 && world.season >= maxSeasons ? `Free careers stop after season ${LIMITS.free.maxSeasons}` : 'Season reports are a Pro feature'}</h2>
+            <p className="muted">Pro removes the {LIMITS.free.maxSeasons}-season limit, keeps careers in the cloud, and adds season reports with charts, final tables, honours and explained matches. This career stays exactly as it is until you upgrade.</p>
             <UpgradeButton signedIn={session.signedIn} enabled={session.paymentsEnabled} label="Upgrade to Pro" />
             <div className="actions"><button className="btn" onClick={() => setPaywall(false)}>Not now</button><Link href="/pricing" className="btn">See plans</Link></div>
           </div>
@@ -175,10 +234,4 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
       ) : null}
     </div>
   );
-}
-
-function ordinal(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return s[(v - 20) % 10] ?? s[v] ?? s[0];
 }

@@ -1,4 +1,4 @@
-import type { CompetitionLeague, World } from '../core/schema.js';
+import type { CompetitionCup, CompetitionLeague, Fixture, World } from '../core/schema.js';
 
 export interface Standing {
   clubId: string;
@@ -14,12 +14,22 @@ export interface Standing {
 }
 
 export function computeTable(world: World, comp: CompetitionLeague): Standing[] {
+  return computeStandings(world, comp.clubIds, (world.idx.fixturesByCompetition[comp.id] ?? []).map((id) => world.fixtures[id]));
+}
+
+/** Standings for one group of a cup with a group stage. */
+export function computeGroupTable(world: World, comp: CompetitionCup, group: number): Standing[] {
+  const clubIds = comp.groups?.[group] ?? [];
+  const fixtures = (world.idx.fixturesByCompetition[comp.id] ?? []).map((id) => world.fixtures[id]).filter((f) => f.group === group);
+  return computeStandings(world, clubIds, fixtures);
+}
+
+export function computeStandings(world: World, clubIds: readonly string[], fixtures: readonly Fixture[]): Standing[] {
   const rows = new Map<string, Standing>();
-  for (const id of comp.clubIds) {
+  for (const id of clubIds) {
     rows.set(id, { clubId: id, played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, gd: 0, points: 0, position: 0 });
   }
-  for (const fid of world.idx.fixturesByCompetition[comp.id] ?? []) {
-    const f = world.fixtures[fid];
+  for (const f of fixtures) {
     if (!f.played) continue;
     const h = rows.get(f.homeClubId);
     const a = rows.get(f.awayClubId);

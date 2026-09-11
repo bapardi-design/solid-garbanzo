@@ -46,10 +46,12 @@ export function boardReview(ctx: Ctx, final: boolean): void {
     const table = tables.get(league.id)!;
     const position = positionOf(table, club.id);
     const formPts = club.form.reduce((a, b) => a + b, 0);
-    const tolerance = final ? 4 : 5;
+    const n = league.clubIds.length;
+    const tolerance = final ? Math.max(4, Math.round(n * 0.2)) : 5;
     const underperforming = position > club.boardTarget + tolerance;
     const poorForm = final || (club.form.length >= 6 && formPts <= 4);
-    if (underperforming && poorForm) {
+    const patient = final && club.id !== world.humanClubId && ctx.rng.chance(0.35);
+    if (underperforming && poorForm && !patient) {
       const reason = `${position}${final ? 'th at season end' : 'th'} vs target ${club.boardTarget}, form ${formPts}/${club.form.length * 3}`;
       ctx.emit('MANAGER_SACKED', { managerId, clubId: club.id, reason });
       if (club.id === world.humanClubId) ctx.emit('CAREER_ENDED', { clubId: club.id, reason });
@@ -71,7 +73,7 @@ export function expireManagerContracts(ctx: Ctx): void {
     const position = league ? positionOf(computeTable(world, league), club.id) : club.boardTarget;
     const metTarget = position <= club.boardTarget + 1;
     if (metTarget && rng.chance(0.85)) {
-      ctx.emit('MANAGER_APPOINTED', { managerId, clubId: club.id, contractEndSeason: world.season + rng.int(1, 3) });
+      ctx.emit('MANAGER_APPOINTED', { managerId, clubId: club.id, contractEndSeason: world.season + rng.int(1, 3), reason: 'renewal' });
     } else {
       ctx.emit('MANAGER_CONTRACT_EXPIRED', { managerId, clubId: club.id });
     }
@@ -89,11 +91,11 @@ export function fillManagerVacancies(ctx: Ctx): void {
     if (pool.length > 0 && rng.chance(0.85)) {
       managerId = pool[Math.min(pool.length - 1, rng.int(0, 1))].id;
     } else {
-      const manager = generateManager(ctx, null, club.reputation);
+      const manager = generateManager(ctx, null, club.reputation, club.nationId);
       ctx.emit('MANAGER_CREATED', { manager });
       managerId = manager.id;
     }
-    ctx.emit('MANAGER_APPOINTED', { managerId, clubId: club.id, contractEndSeason: world.season + rng.int(1, 3) });
+    ctx.emit('MANAGER_APPOINTED', { managerId, clubId: club.id, contractEndSeason: world.season + rng.int(1, 3), reason: 'appointment' });
   }
 }
 

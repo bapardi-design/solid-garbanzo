@@ -4,6 +4,7 @@ import './globals.css';
 import { currentUser, supabaseConfigured } from '@/lib/supabase/server';
 import { stripeConfigured } from '@/lib/stripe';
 import { SessionProvider, type SessionInfo } from '@/game/session';
+import { FlagDefs, Logo } from '@/game/marks';
 
 export const metadata: Metadata = {
   title: { default: 'Touchline', template: '%s · Touchline' },
@@ -26,10 +27,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
       </head>
       <body>
+        <FlagDefs />
         <SessionProvider value={session}>
           <header className="site-header">
             <div className="wrap">
-              <Link href="/" className="brand"><small>Football manager</small>Touchline</Link>
+              <Link href="/" className="logo" aria-label="Touchline home"><Logo /></Link>
               <nav className="nav" aria-label="Main">
                 <Link href="/play">Play</Link>
                 <Link href="/pricing">Pricing</Link>
