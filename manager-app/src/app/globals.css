@@ -499,3 +499,8 @@ td,th{border-bottom:1px solid var(--rule)}
   padding: 24px 16px;
 }
 .gate .panel { width: min(380px, 100%); }
+
+/* A player's season-by-season record in his drawer. */
+.careertable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.careertable th { text-align: left; font-weight: 600; opacity: 0.6; padding: 4px 8px 4px 0; }
+.careertable td { padding: 4px 8px 4px 0; border-top: 1px solid var(--line, rgba(128, 128, 128, 0.2)); }

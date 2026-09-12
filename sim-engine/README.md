@@ -198,6 +198,12 @@ Measured over eight seasons, and where each one got to:
 - halving the intake with free agents surviving two seasons — the same
   collapse, the top flight at eighteen or nineteen while the lower divisions
   hold at twenty-four
+- pricing a surplus player by what his club can hold out for rather than a
+  flat 5% discount for everybody, so a rich club's reserves cost a premium and
+  a poor club's go cheap — right in principle and worth nothing here: the top
+  flight still ended at eighteen or nineteen under the halved intake, and at
+  the ordinary intake it moved neither squad sizes nor the volume of the
+  market, so it was not kept
 
 The open question is why the top flight cannot restock when the intake falls,
 because the intake cannot come down until it is answered. It is not money or
@@ -216,8 +222,15 @@ for that were measured and neither cured it:
   eighteen, and under the ordinary intake it quiets the transfer market by a
   third
 
-So it is the selling side, and neither the volume nor the willingness is
-wrong on its own. What is missing is a reason for the pyramid's best clubs to
+Nor is it the price. What the top flight sells, the divisions below want: a
+sixth-choice defender in the top flight is better than a third-tier starter,
+and the only brake on a smaller club signing him is one chance roll that still
+lets a second-tier club through about a fifth of the time. Twenty top-flight
+clubs selling ten players a season is most of the whole world's transfer
+market.
+
+So it is the selling side, and neither the volume, the willingness nor the
+price is wrong on its own. What is missing is a reason for the pyramid's best clubs to
 keep their own: something about who wants to leave and who is worth keeping,
 rather than another number on the size of a squad.
 
@@ -232,6 +245,23 @@ Measured and rejected along the way, each across three seeds:
   than its eleven-man average — neutral over three seeds
 - letting the graduate reach his drawn peak on its own — the top flight stops
   rotting and the fourth tier runs away instead, 42 to 58 in eight seasons
+
+## Careers
+
+A player's record used to be two running totals, so the season a squad player
+scored fifteen and the season he never got on the pitch were the same thing
+once the stats were wiped. Each player now keeps a line per season he played —
+club, appearances, goals, assists, cards and average rating — written at the
+season's end, while he is still at the club he played it for: loans go home and
+contracts expire before the wipe, so anything recorded later names the wrong
+club. A season without a game leaves no line.
+
+Retired players are skipped when stats are wiped, so theirs stand frozen for
+ever; left in, they wrote the same last season again every year until the world
+ended. A player retiring this summer is not marked yet, so his final season is
+still kept. Saves written before this start their record from the day they are
+loaded, and carry about a fifth more weight after six seasons — 775 KB gzipped
+against 911.
 
 ## Squad size
 

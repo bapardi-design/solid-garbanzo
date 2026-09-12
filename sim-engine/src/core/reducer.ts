@@ -423,6 +423,18 @@ export function reduce(w: World, e: Event): void {
       for (const cid in e.payload.leagueMoves) w.clubs[cid].leagueId = e.payload.leagueMoves[cid];
       for (const comp of Object.values(w.competitions)) if (comp.season === e.payload.season) comp.complete = true;
       w.history.push(structuredClone(e.payload.summary));
+      // Keep each player's season while he is still at the club he played it
+      // for: loans go home, contracts expire and the stats are wiped, all
+      // after this. A season without a game leaves no line.
+      for (const id in w.players) {
+        const p = w.players[id];
+        // Retired players are skipped when the season's stats are wiped, so
+        // theirs stand frozen for ever: without this they wrote the same last
+        // season again every year until the world ended. A player retiring
+        // this summer is not marked yet, so his final season is still kept.
+        if (p.retired || p.stats.apps === 0) continue;
+        p.seasons.push({ season: e.payload.season, clubId: p.clubId, ...structuredClone(p.stats) });
+      }
       break;
     }
     case 'PLAYERS_AGED': {

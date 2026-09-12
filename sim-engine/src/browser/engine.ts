@@ -5,7 +5,7 @@
 import { createCtx, type Ctx } from '../core/context.js';
 import type { Event } from '../core/events.js';
 import { Rng, hashString } from '../core/rng.js';
-import { CUSTOM_CONFIG, DEFAULT_CONFIG, createEmptyWorld, isRealWorld, leagueOf, nationFromLeagueId, seasonDay, squad, tierOfClub, type CardEvent, type Fixture, type MatchReport, type World, type WorldConfig } from '../core/schema.js';
+import { CUSTOM_CONFIG, DEFAULT_CONFIG, createEmptyWorld, isRealWorld, leagueOf, nationFromLeagueId, seasonDay, squad, tierOfClub, type CardEvent, type CareerSeason, type Fixture, type MatchReport, type World, type WorldConfig } from '../core/schema.js';
 import { generateWorld } from '../world/generate.js';
 import { computeGroupTable, computeTable, positionOf } from '../matchday/table.js';
 import { PLAYOFF_FIELD, playoffCompId } from '../engines/season.js';
@@ -70,6 +70,9 @@ function migrate(world: World): void {
   // who is out where, which no save has ever carried.
   world.idx.loanedOutBy = {};
   for (const p of Object.values(world.players)) {
+    // A save written before careers were kept season by season: the seasons
+    // already played cannot be recovered, so the record starts from here.
+    if (!Array.isArray(p.seasons)) p.seasons = [];
     const q = p as typeof p & { suspension?: number };
     if (typeof q.suspension !== 'number') q.suspension = 0;
     const st = p.stats as typeof p.stats & { yellows?: number; reds?: number };
@@ -191,7 +194,7 @@ export const api = {
 export default api;
 
 export type { HalfTimeDecision } from '../matchday/match.js';
-export type { World, WorldConfig, Player, Club, Manager, Contract, Fixture, Competition, CompetitionLeague, CompetitionCup, MatchReport, GoalFactor, GoalEvent, CardEvent, CardKind, TrainingFocus, Tactic, Position, TransferRecord, SeasonSummary, Nation, NewsItem, NewsCategory, TransferBid, HalfTimeState, MatchSub, Boardroom, Decision, DecisionOption, DecisionKind, Facilities } from '../core/schema.js';
+export type { CareerSeason, World, WorldConfig, Player, Club, Manager, Contract, Fixture, Competition, CompetitionLeague, CompetitionCup, MatchReport, GoalFactor, GoalEvent, CardEvent, CardKind, TrainingFocus, Tactic, Position, TransferRecord, SeasonSummary, Nation, NewsItem, NewsCategory, TransferBid, HalfTimeState, MatchSub, Boardroom, Decision, DecisionOption, DecisionKind, Facilities } from '../core/schema.js';
 export type { Event, EventType } from '../core/events.js';
 export type { Standing } from '../matchday/table.js';
 export type { Selection } from '../matchday/xi.js';

@@ -158,6 +158,30 @@ export function PlayerDrawer({ game, playerId, clubId, onClose, onAction }: { ga
             <p className="side">Attributes</p>
             <AttrBar label="Pace" v={p.attrs.pace} /><AttrBar label="Technique" v={p.attrs.technique} /><AttrBar label="Physical" v={p.attrs.physical} /><AttrBar label="Mental" v={p.attrs.mental} />{p.position === 'GK' ? <AttrBar label="Goalkeeping" v={p.attrs.goalkeeping} /> : null}
           </section>
+          {p.seasons.length ? (
+            <section>
+              <p className="side">Season by season</p>
+              <div className="scroll">
+                <table className="careertable">
+                  <thead><tr><th>Season</th><th>Club</th><th className="num">Apps</th><th className="num">G</th><th className="num">A</th><th className="num">Cards</th><th className="num">Rating</th></tr></thead>
+                  <tbody>
+                    {[...p.seasons].reverse().map((s) => (
+                      <tr key={s.season}>
+                        <td className="mono">S{s.season}</td>
+                        <td>{s.clubId ? world.clubs[s.clubId]?.name ?? '—' : '—'}</td>
+                        <td className="num">{s.apps}</td>
+                        <td className="num">{s.goals}</td>
+                        <td className="num">{s.assists}</td>
+                        <td className="num mono">{s.yellows || s.reds ? <><span className="card-y">{s.yellows}</span>{s.reds ? <span className="card-r">{s.reds}</span> : null}</> : <span className="muted">–</span>}</td>
+                        <td className="num">{(s.ratingSum / Math.max(1, s.apps)).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="muted small">A season without a game leaves no line.</p>
+            </section>
+          ) : null}
           <section>
             <p className="side">Scout report</p>
             <p>{scout.verdict} Strengths: {scout.strengths.join(', ')}. Weaknesses: {scout.weaknesses.join(', ')}. Career: {p.career.apps} apps, {p.career.goals} goals.</p>
