@@ -7,7 +7,8 @@
     "build:engine": "cd ../sim-engine && npm ci --include=dev --no-audit --no-fund && npm run build && cd ../manager-app",
     "build": "npm run build:engine && next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
@@ -19,6 +20,7 @@
     "stripe": "^18.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@types/node": "^22.0.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",

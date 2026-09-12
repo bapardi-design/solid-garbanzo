@@ -254,6 +254,20 @@ interface Settlement {
   derby: boolean;
 }
 
+/**
+ * Five each and then sudden death, at the rate penalties are scored. Used for
+ * a knockout tie that ends level and for a play-off that is level on aggregate.
+ */
+export function penaltyShootout(rng: Ctx['rng']): { home: number; away: number } {
+  let h = 0, a = 0;
+  for (let i = 0; i < 5 || h === a; i++) {
+    if (rng.chance(0.76)) h++;
+    if (rng.chance(0.76)) a++;
+    if (i > 20) { h++; break; }
+  }
+  return { home: h, away: a };
+}
+
 /** Penalties, player stats, injuries and the report, once both halves are played. */
 function settle(ctx: Ctx, s: Settlement): MatchOutcome {
   const { world, rng } = ctx;
@@ -264,14 +278,8 @@ function settle(ctx: Ctx, s: Settlement): MatchOutcome {
   let winnerId: string | null = homeGoals > awayGoals ? fixture.homeClubId : awayGoals > homeGoals ? fixture.awayClubId : null;
   let penalties: MatchReport['penalties'] = null;
   if (fixture.knockout && winnerId === null) {
-    let h = 0, a = 0;
-    for (let i = 0; i < 5 || h === a; i++) {
-      if (rng.chance(0.76)) h++;
-      if (rng.chance(0.76)) a++;
-      if (i > 20) { h++; break; }
-    }
-    penalties = { home: h, away: a };
-    winnerId = h > a ? fixture.homeClubId : fixture.awayClubId;
+    penalties = penaltyShootout(rng);
+    winnerId = penalties.home > penalties.away ? fixture.homeClubId : fixture.awayClubId;
   }
 
   const playerStats: Record<string, PlayerMatchStats> = {};

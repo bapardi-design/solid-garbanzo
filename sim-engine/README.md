@@ -83,6 +83,38 @@ the second half on a new basis. A decision is a tactic switch, up to three
 substitutions, or both; illegal swaps are ignored. The second half's factors,
 the substitutions and the half-time score are all recorded on the report.
 
+### The drift that is still there
+
+Goals per match rise about 0.15 across six seasons — roughly 2.67 to 2.82 —
+and the cause is visible in the expected-goals inputs. Measured mid-season for
+the top flight, the goalkeeping line falls about eight points over six seasons
+and the defensive line about six, while the attack falls five and the midfield
+two. Defence is weighted towards the two lines that decay fastest, so the
+attack-to-defence ratio climbs from about 1.03 to 1.08, which is the drift.
+
+Underneath it is an order statistic: a side picks two forwards out of many and
+one keeper out of two or three, so the attack sits above whatever standard the
+world produces and the goalkeeping sits at it. As the hand-written starting
+squads age out, the goalkeeping line falls to the level the world can make and
+the attack does not.
+
+Measured and rejected, each across three seeds:
+
+- a rare high-potential roll on young players — no effect on the decay
+- a reputation ceiling on academy output — cost the top flight three points
+  and made the drift worse
+- raising the growth floor for players who get no minutes — no effect, though
+  72% of under-23 goalkeepers get none against 55% of outfielders
+- pitching each academy intake at the club's own line for that position rather
+  than its eleven-man average — neutral over three seeds (goalkeeping 71.6
+  against 72.6, ratio 1.077 against 1.080)
+
+Things that did help are in the history: intakes in the shape of a squad,
+intakes sized to the room a club has, academies pitched at the club's standard
+rather than its reputation, and good players refusing to drop a division.
+Together they took the drift from 0.25 to 0.15 a season-six match and stopped
+the top flight rotting from 65 to 59.
+
 ## Report
 
 `--report FILE` writes a single HTML file with no external scripts: goals and
