@@ -55,6 +55,7 @@ function basePlayer(ctx: Ctx, clubId: string | null, position: Position, name: s
     value: 0,
     stats: { apps: 0, goals: 0, assists: 0, minutes: 0, ratingSum: 0, yellows: 0, reds: 0 },
     career: { apps: 0, goals: 0 },
+    seasons: [],
     retired: false,
     lastStartDay: -1,
     freeSince: clubId ? null : ctx.world.day,

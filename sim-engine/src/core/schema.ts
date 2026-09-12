@@ -21,6 +21,17 @@ export interface PlayerSeasonStats {
   reds: number;
 }
 
+/**
+ * What a player did in one season. A career used to be two running totals, so
+ * the year a squad player scored fifteen and the year he did not get on the
+ * pitch were indistinguishable once the season's stats were wiped.
+ */
+export interface CareerSeason extends PlayerSeasonStats {
+  season: number;
+  /** The club he played it for — the host club for a season spent on loan. */
+  clubId: string | null;
+}
+
 export interface Loan {
   toClubId: string;
   /** The club that still owns him, and still pays most of his wages. */
@@ -51,6 +62,8 @@ export interface Player {
   value: number;
   stats: PlayerSeasonStats;
   career: { apps: number; goals: number };
+  /** One line per season he actually played; seasons without a game are absent. */
+  seasons: CareerSeason[];
   retired: boolean;
   /** Day the player last started a match; -1 if never. */
   lastStartDay: number;

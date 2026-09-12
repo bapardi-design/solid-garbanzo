@@ -374,6 +374,43 @@ test('squads are sized by division, not by one cap for everybody', async () => {
   assert.ok(biggest <= MAX_SQUAD, `someone is carrying ${biggest} players`);
 });
 
+test('a career is kept season by season', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const { DEFAULT_CONFIG } = await import('../core/schema.js');
+  const game = createGame({ ...DEFAULT_CONFIG, seed: 'careers', nations: ['ENG'] });
+  const loanClubs = new Map<string, string>();
+  while (game.world.day < 4 * game.world.seasonLength) {
+    for (const e of step(game, 1)) {
+      // Remember where a loan sent him, to check the season is credited to the
+      // club he played it for rather than the one that owns him.
+      if (e.type === 'LOAN_STARTED') loanClubs.set(e.payload.record.playerId, e.payload.record.toClubId);
+    }
+  }
+  const players = Object.values(game.world.players);
+  const withSeasons = players.filter((p) => p.seasons.length > 0);
+  assert.ok(withSeasons.length > 500, `only ${withSeasons.length} players have a season on record`);
+
+  for (const p of players) {
+    const seasons = p.seasons.map((s) => s.season);
+    assert.equal(new Set(seasons).size, seasons.length, `${p.name} has the same season twice`);
+    // Retired players are skipped when stats are wiped, so theirs stand frozen:
+    // left in, they wrote their last season again every year for ever.
+    const apps = p.seasons.reduce((n, s) => n + s.apps, 0);
+    assert.ok(apps <= p.career.apps, `${p.name}: ${apps} apps across seasons against a career of ${p.career.apps}`);
+    const goals = p.seasons.reduce((n, s) => n + s.goals, 0);
+    assert.ok(goals <= p.career.goals, `${p.name}: ${goals} goals across seasons against a career of ${p.career.goals}`);
+    for (const s of p.seasons) assert.ok(s.apps > 0, `${p.name} has a season with no appearances on record`);
+  }
+
+  // Somebody played four seasons, and the totals add up to the running career.
+  const longest = withSeasons.sort((a, b) => b.seasons.length - a.seasons.length)[0];
+  assert.ok(longest.seasons.length >= 4, `the longest career on record is ${longest.seasons.length} seasons`);
+  assert.equal(longest.seasons.reduce((n, s) => n + s.apps, 0), longest.career.apps);
+
+  const lentOut = withSeasons.find((p) => loanClubs.has(p.id) && p.seasons.some((s) => s.clubId === loanClubs.get(p.id)));
+  assert.ok(lentOut, 'no loan season was credited to the club he played it for');
+});
+
 test('the loan market opens, and nobody fills up on other clubs players', async () => {
   const { createGame, step } = await import('../browser/engine.js');
   const { DEFAULT_CONFIG, squad } = await import('../core/schema.js');
