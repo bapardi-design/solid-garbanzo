@@ -1,4 +1,4 @@
-import type { Attributes, Boardroom, Club, Competition, Contract, Decision, Fixture, HalfTimeState, Manager, MatchReport, Nation, NewsItem, Player, SeasonSummary, Tactic, TransferBid, TransferRecord, WorldConfig } from './schema.js';
+import type { Attributes, Boardroom, Club, Competition, Contract, Decision, Fixture, HalfTimeState, Manager, MatchReport, Nation, NewsItem, Player, SeasonSummary, Tactic, TransferBid, TransferRecord, WorldConfig , TrainingFocus} from './schema.js';
 
 export interface PlayerMatchStats {
   minutes: number;
@@ -52,6 +52,7 @@ export interface EventPayloads {
   CUP_ROUND_ADVANCED: { competitionId: string; round: number; alive: string[]; winnerId: string | null };
   BUDGETS_SET: { budgets: Record<string, { wageBudget: number; transferBudget: number; boardTarget: number }> };
   TACTIC_CHANGED: { clubId: string; tactic: Tactic };
+  TRAINING_SET: { focus: TrainingFocus };
   SEASON_ENDED: { season: number; summary: SeasonSummary; leagueMoves: Record<string, string> };
   PLAYERS_AGED: { season: number };
   CLUB_TAKEN_OVER: { clubId: string; manager: Manager };

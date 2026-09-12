@@ -178,8 +178,14 @@ export function reduce(w: World, e: Event): void {
         const p = w.players[id];
         if (p.retired) continue;
         if (p.injuryDays > 0) p.injuryDays--;
-        if (p.fitness < 100) p.fitness = Math.min(100, p.fitness + 6);
+        // A squad working on fitness comes back quicker between matches.
+        const recovery = w.training === 'fitness' && p.clubId && p.clubId === w.humanClubId ? 9 : 6;
+        if (p.fitness < 100) p.fitness = Math.min(100, p.fitness + recovery);
       }
+      break;
+    }
+    case 'TRAINING_SET': {
+      w.training = e.payload.focus;
       break;
     }
     case 'BOARDROOM_OPENED': {

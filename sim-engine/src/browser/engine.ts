@@ -54,9 +54,10 @@ export function resumeGame(snapshot: GameSnapshot): Game {
  * from the goal minutes.
  */
 function migrate(world: World): void {
-  const w = world as World & { halfTime?: World['halfTime']; boardroom?: World['boardroom'] };
+  const w = world as World & { halfTime?: World['halfTime']; boardroom?: World['boardroom']; training?: World['training'] };
   if (w.halfTime === undefined) w.halfTime = null;
   if (w.boardroom === undefined) w.boardroom = null;
+  if (!w.training) w.training = 'balanced';
   if (w.halfTime) {
     // A save paused at half time, written before cards existed.
     const ht = w.halfTime as World['halfTime'] & { cards?: CardEvent[]; bookedHome?: string[]; bookedAway?: string[]; derby?: boolean };
@@ -169,7 +170,7 @@ export const api = {
 export default api;
 
 export type { HalfTimeDecision } from '../matchday/match.js';
-export type { World, WorldConfig, Player, Club, Manager, Contract, Fixture, Competition, CompetitionLeague, CompetitionCup, MatchReport, GoalFactor, GoalEvent, CardEvent, CardKind, Tactic, Position, TransferRecord, SeasonSummary, Nation, NewsItem, NewsCategory, TransferBid, HalfTimeState, MatchSub, Boardroom, Decision, DecisionOption, DecisionKind, Facilities } from '../core/schema.js';
+export type { World, WorldConfig, Player, Club, Manager, Contract, Fixture, Competition, CompetitionLeague, CompetitionCup, MatchReport, GoalFactor, GoalEvent, CardEvent, CardKind, TrainingFocus, Tactic, Position, TransferRecord, SeasonSummary, Nation, NewsItem, NewsCategory, TransferBid, HalfTimeState, MatchSub, Boardroom, Decision, DecisionOption, DecisionKind, Facilities } from '../core/schema.js';
 export type { Event, EventType } from '../core/events.js';
 export type { Standing } from '../matchday/table.js';
 export type { Selection } from '../matchday/xi.js';
