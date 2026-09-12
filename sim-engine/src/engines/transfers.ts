@@ -12,6 +12,17 @@ export const SUMMER_WINDOW: [number, number] = [0, 27];
 export const WINTER_WINDOW: [number, number] = [168, 195];
 export const MIN_PER_POSITION: Record<Position, number> = { GK: 2, DF: 6, MF: 6, FW: 3 };
 export const MAX_SQUAD = 30;
+
+/**
+ * How many players a club carries. Money sets the number, not ambition: a
+ * top-flight squad is deeper than a fourth-tier one because someone can pay
+ * for the depth. Against one cap for everybody the lower divisions ended up
+ * with the biggest squads in the game, because a cheap starter is easy to
+ * improve on and a dear one is not.
+ */
+export function squadTarget(world: Ctx['world'], clubId: string): number {
+  return clamp(Math.round(18 + (world.clubs[clubId]?.reputation ?? 50) * 0.09), 20, MAX_SQUAD - 2);
+}
 const MAX_SIGNINGS_PER_DAY = 2;
 /** Real-world clubs rebuild gradually: paid or free signings per window. */
 const MAX_SIGNINGS_PER_WINDOW = 4;
@@ -63,6 +74,7 @@ export function buildMarket(ctx: Ctx): Listing[] {
       continue;
     }
     const cashStrapped = club.balance < 0;
+    const overloaded = players.length > squadTarget(world, club.id);
     for (const pos of POSITIONS) {
       const byPos = ranked(players, pos);
       byPos.forEach((p, i) => {
@@ -72,6 +84,7 @@ export function buildMarket(ctx: Ctx): Listing[] {
         const expiring = c !== null && c.endSeason === world.season;
         let mult: number | null = null;
         if (cashStrapped && rank > 1) mult = 0.85;
+        else if (overloaded && rank > starterSlots(pos)) mult = 0.75;
         else if (surplus) mult = 0.95;
         else if (expiring && p.age >= 27) mult = 0.7;
         else if (real) mult = club.reputation < 80 && rank <= starterSlots(pos) ? 2.2 : rank > starterSlots(pos) ? 1.5 : null;
@@ -104,9 +117,10 @@ export function clubNeeds(ctx: Ctx, clubId: string, leagueLine: Record<Position,
     const weakest = starters.length ? overall(starters[starters.length - 1]) : 0;
     const club = world.clubs[clubId];
     const weakestValue = starters.length ? starters[starters.length - 1].value : 0;
+    const target = squadTarget(world, clubId);
     if (line < leagueLine[pos] - 2) needs.push({ pos, minRating: weakest + 3, priority: 2 });
-    else if (club.transferBudget > weakestValue * 3 && players.length < MAX_SQUAD - 2) needs.push({ pos, minRating: weakest + 2, priority: 1.5 });
-    else if (players.length < world.config.squadSize) needs.push({ pos, minRating: weakest - 15, priority: 1 });
+    else if (club.transferBudget > weakestValue * 3 && players.length < target) needs.push({ pos, minRating: weakest + 2, priority: 1.5 });
+    else if (players.length < target) needs.push({ pos, minRating: weakest - 15, priority: 1 });
   }
   return needs.sort((a, b) => b.priority - a.priority);
 }
@@ -150,7 +164,14 @@ export function runTransferDay(ctx: Ctx): void {
     for (const need of needs) {
       if (signings >= MAX_SIGNINGS_PER_DAY) break;
       if (real && alreadySigned + signings >= MAX_SIGNINGS_PER_WINDOW && need.priority < 3) break;
-      if (squad(world, clubId).length >= MAX_SQUAD) break;
+      // The squad a club means to carry stops it adding depth, and nothing
+      // else. A side below the league standard in a position still buys —
+      // that is a replacement, not an addition — and one short of a position
+      // buys whatever it takes. Given the whole cap for either, emergency
+      // cover was how the small clubs crept back over their means every
+      // summer.
+      const spare = need.priority >= 3 ? 3 : need.priority >= 2 ? 2 : 0;
+      if (squad(world, clubId).length >= Math.min(squadTarget(world, clubId) + spare, MAX_SQUAD)) continue;
       const wageRoom = club.wageBudget - weeklyWageBill(world, clubId);
       const candidates = market
         .filter((l) => l.player.position === need.pos && l.fromClubId !== clubId && !sold.has(l.player.id) && !l.player.retired)
@@ -197,7 +218,7 @@ function runLoans(ctx: Ctx, moved: Set<string>): void {
       .filter((p) => ranked(squad(world, ownerId), p.position).length > MIN_PER_POSITION[p.position]);
     if (prospects.length === 0) continue;
     const prospect = rng.pick(prospects);
-    const hosts = clubs.filter((cid) => cid !== ownerId && cid !== world.humanClubId && world.clubs[cid].nationId === owner.nationId && tierOfClub(world, cid) > ownerTier && squad(world, cid).length < MAX_SQUAD);
+    const hosts = clubs.filter((cid) => cid !== ownerId && cid !== world.humanClubId && world.clubs[cid].nationId === owner.nationId && tierOfClub(world, cid) > ownerTier && squad(world, cid).length < squadTarget(world, cid));
     const willing = hosts.filter((cid) => {
       const club = world.clubs[cid];
       if (!lineCache.has(club.leagueId)) lineCache.set(club.leagueId, leagueLines(ctx, club.leagueId));
@@ -228,7 +249,7 @@ export function renewContracts(ctx: Ctx, finalCall: boolean): void {
       const keyPlayer = rank <= starterSlots(p.position) + 2;
       const prospect = p.age < 24 && p.potential >= overall(p) + 5;
       // Squad depth: keep useful backups when the squad is not oversized.
-      const depth = rank <= starterSlots(p.position) + 4 && players.length <= world.config.squadSize && p.age < 32 && rng.chance(0.6);
+      const depth = rank <= starterSlots(p.position) + 4 && players.length <= squadTarget(world, club.id) && p.age < 32 && rng.chance(0.6);
       const tooOld = p.age >= 34;
       if (tooOld || !(keyPlayer || prospect || depth)) continue;
       if (!finalCall && !rng.chance(0.5)) continue;
@@ -239,6 +260,42 @@ export function renewContracts(ctx: Ctx, finalCall: boolean): void {
       roomLeft -= extra;
       const contract = makeContract(ctx, p.id, club.id, wage, contractLengthFor(p.age, rng));
       ctx.emit('CONTRACT_SIGNED', { contract, record: record(ctx, p, club.id, club.id, 0, 'renewal') });
+    }
+  }
+}
+
+/**
+ * The released list. A club carrying more than it can afford lets the bottom
+ * of the squad go at the end of the season, paying off what is left of the
+ * contract. Nothing else shifts a player nobody wants to buy, so without it
+ * the small clubs sat above their means for as long as the world ran.
+ */
+export function releaseSurplus(ctx: Ctx): void {
+  const { world } = ctx;
+  for (const clubId of Object.keys(world.clubs).sort()) {
+    if (clubId === world.humanClubId) continue;
+    let over = squad(world, clubId).filter((p) => !p.loan).length - squadTarget(world, clubId);
+    if (over <= 0) continue;
+    const worstFirst = squad(world, clubId)
+      .filter((p) => !p.loan)
+      .sort((a, b) => overall(a) - overall(b) || a.id.localeCompare(b.id));
+    for (const p of worstFirst) {
+      if (over <= 0) break;
+      const c = contractOf(world, p.id);
+      // A contract that is up anyway needs no paying off, and nobody releases
+      // a player they would pick.
+      if (!c || c.endSeason <= world.season) continue;
+      if (rankAtClub(ctx, p) <= starterSlots(p.position) + 1) continue;
+      // Worst first puts the sixteen-year-olds at the head of the queue, and
+      // a club that released its academy every summer would have no reason to
+      // run one.
+      if (p.age < 24 && p.potential >= overall(p) + 5) continue;
+      // Leave a spare in every position: released to the bone, clubs spent the
+      // summer signing emergency cover and ended up over their means again.
+      if (ranked(squad(world, clubId), p.position).length <= MIN_PER_POSITION[p.position] + 1) continue;
+      const payoff = Math.round(c.wage * 52 * (c.endSeason - world.season + 1) * 0.5);
+      ctx.emit('PLAYER_RELEASED', { playerId: p.id, clubId, payoff });
+      over--;
     }
   }
 }
