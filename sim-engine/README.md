@@ -199,12 +199,27 @@ Measured over eight seasons, and where each one got to:
   collapse, the top flight at eighteen or nineteen while the lower divisions
   hold at twenty-four
 
-The open question is why the top flight cannot restock from the market when
-the intake falls. It is not money or supply: measured at the point of the
-collapse, top-flight clubs hold four unmet needs apiece, transfer budgets in
-the hundreds of millions, and 1,834 of the 1,850 listings in the world are
-affordable to them. Something between a need and a signing is refusing, and
-finding it is the next thing.
+The open question is why the top flight cannot restock when the intake falls,
+because the intake cannot come down until it is answered. It is not money or
+supply: at the point of the collapse top-flight clubs hold four unmet needs
+apiece, transfer budgets in the hundreds of millions, and 1,834 of the 1,850
+listings in the world are affordable to them on both fee and wage. Nor is it
+that they fail to buy. They buy nine a season and **sell ten**, churning the
+squad downwards, while the divisions below them hold at twenty-four. Two fixes
+for that were measured and neither cured it:
+
+- letting a club short of the squad it pays for sign past the four-a-window
+  limit real clubs are held to — it buys nine and a half instead of eight and
+  a half, and sells eleven
+- stopping a club that is short from offering the players it picks, selling
+  only those well down the pecking order — the top flight still ends at
+  eighteen, and under the ordinary intake it quiets the transfer market by a
+  third
+
+So it is the selling side, and neither the volume nor the willingness is
+wrong on its own. What is missing is a reason for the pyramid's best clubs to
+keep their own: something about who wants to leave and who is worth keeping,
+rather than another number on the size of a squad.
 
 Measured and rejected along the way, each across three seeds:
 
