@@ -110,10 +110,21 @@ export function startSeason(ctx: Ctx, season: number): void {
       // even split floods the world with keepers who never get a game and
       // starves it of forwards.
       const pos = rng.weighted(['GK', 'DF', 'MF', 'FW'] as const satisfies readonly Position[], [3, 8, 8, 6]);
-      // An academy turns out players for the side they are trying to get into,
-      // so the standard is the club's own, a shade under it, with the spread
-      // giving the occasional one better than anyone there.
-      const target = squadStrength(world, club.id) * 0.95 + academy;
+      // An academy turns out players for the side they are trying to get
+      // into: half the club's own standard, half what a club of its standing
+      // is worth, less what picking the best eleven of a squad flatters the
+      // first number by.
+      //
+      // Aiming at the club's own squad alone is a loop — good graduates raise
+      // the squad, which raises the aim — and the fixed point of that loop is
+      // the same number for every club in the world, so the divisions closed
+      // on each other however the constants were pushed. Reputation moves on
+      // results and money rather than on who the academy turned out last
+      // summer, and that is what holds a division where it is. The mapping is
+      // regressed off the world as it is generated: over 276 clubs a squad's
+      // strength runs 0.86 × reputation + 10, either side of four points.
+      const standing = club.reputation * 0.86 + 10;
+      const target = standing + academy - 3.5;
       const player = generatePlayer(ctx, club.id, pos, club.reputation * 0.8 + academy, rng.int(16, 18), club.nationId, target);
       ctx.emit('PLAYER_CREATED', { player });
       // Youth terms: a sixteen-year-old signs for a fraction of what he would

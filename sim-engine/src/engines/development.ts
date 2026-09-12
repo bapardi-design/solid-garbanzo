@@ -33,7 +33,12 @@ export function weeklyDevelopment(ctx: Ctx): void {
         const room = Math.max(0, p.potential - ovr);
         if (room <= 0) continue;
         const minutesShare = clamp(p.stats.minutes / (weeksElapsed * 90), 0, 1);
-        const growth = room * 0.022 * (0.55 + 0.7 * minutesShare) * coaching * focus.young * rng.float(0.6, 1.4);
+        // A boy who never gets on the pitch barely improves. With a floor of
+        // 0.55 he came good anyway, so every squad in the world filled with
+        // teenagers who reached their ceiling watching, and the standard of
+        // the whole world climbed season after season. The player who plays
+        // develops at the same rate as before.
+        const growth = room * 0.022 * (0.15 + 1.1 * minutesShare) * coaching * focus.young * rng.float(0.6, 1.4);
         const keys = p.position === 'GK' ? ATTRIBUTE_KEYS : ATTRIBUTE_KEYS.filter((k) => k !== 'goalkeeping');
         for (const k of keys) d[k] = round1(growth * focus[k] * rng.float(0.5, 1.5));
       } else if (p.age >= 30) {

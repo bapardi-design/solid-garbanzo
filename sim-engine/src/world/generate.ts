@@ -84,10 +84,20 @@ function fitToOverall(p: Player, target: number): void {
   }
 }
 
-function assignPotential(p: Player, rng: Ctx['rng'], real: boolean): void {
+/**
+ * `peak` is the standard the player was drawn to reach. Where there is one it
+ * is the ceiling; where there is not — a real player fitted to a listed
+ * rating — the ceiling is a guess off his age.
+ *
+ * Guessing where a peak was known cost a top-flight academy eleven points a
+ * graduate: the club drew a boy to peak at 75, the guess gave him 64, and the
+ * fourth tier lost two. That gap, applied to every intake for as long as the
+ * world ran, was most of why the divisions closed on each other.
+ */
+function assignPotential(p: Player, rng: Ctx['rng'], real: boolean, peak?: number): void {
   const ovr = overall(p);
   const growth = p.age < 24 ? rng.int(2, 18) * ((24 - p.age) / 7) : p.age < 27 ? rng.int(0, 4) : 0;
-  p.potential = clamp(Math.round(Math.max(ovr, ovr + growth)), 1, 99);
+  p.potential = clamp(Math.round(Math.max(ovr, peak ?? ovr + growth)), 1, 99);
   p.value = playerValue(p, real);
 }
 
@@ -106,7 +116,7 @@ export function generatePlayer(ctx: Ctx, clubId: string | null, position: Positi
   const maturity = age >= 27 ? 1 : 0.72 + (age - 17) * 0.028;
   const nat = nationality ?? 'CUS';
   const player = basePlayer(ctx, clubId, position, personName(nat, rng), age, nat, attrsAround(rng, position, peak * maturity));
-  assignPotential(player, rng, isRealWorld(ctx.world));
+  assignPotential(player, rng, isRealWorld(ctx.world), peakTarget === undefined ? undefined : peak);
   return player;
 }
 
