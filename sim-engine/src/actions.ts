@@ -4,7 +4,7 @@
  */
 import type { Ctx } from './core/context.js';
 import { clamp, hashString } from './core/rng.js';
-import type { CardEvent, Club, Decision, GoalEvent, Manager, NewsCategory, NewsItem, Player, Position, Tactic, TransferRecord, World } from './core/schema.js';
+import type { CardEvent, Club, Decision, GoalEvent, TrainingFocus, Manager, NewsCategory, NewsItem, Player, Position, Tactic, TransferRecord, World } from './core/schema.js';
 import { contractOf, isRealWorld, nextId, squad, tierOfClub } from './core/schema.js';
 import { overall, playerValue, wageDemand, weeklyWageBill } from './rating.js';
 import { MAX_SQUAD, MIN_PER_POSITION, buildMarket, inTransferWindow, type Listing } from './engines/transfers.js';
@@ -50,6 +50,15 @@ export function setTactic(ctx: Ctx, tactic: Tactic): ActionResult {
   if (club.tactic === tactic) return done(`Already playing ${tactic}.`);
   ctx.emit('TACTIC_CHANGED', { clubId: club.id, tactic });
   return done(`Tactic set to ${tactic}.`);
+}
+
+/** What the squad works on between matches. Only the human's club trains to order. */
+export function setTraining(ctx: Ctx, focus: TrainingFocus): ActionResult {
+  const club = humanClub(ctx);
+  if (!club) return fail('You are not managing a club.');
+  if (ctx.world.training === focus) return done(`Already working on ${focus === 'balanced' ? 'a bit of everything' : focus}.`);
+  ctx.emit('TRAINING_SET', { focus });
+  return done(focus === 'balanced' ? 'The week goes back to a bit of everything.' : `The week is built around ${focus} now.`);
 }
 
 export interface MarketEntry {

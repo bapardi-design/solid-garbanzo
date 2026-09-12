@@ -299,7 +299,9 @@ function settle(ctx: Ctx, s: Settlement): MatchOutcome {
         fitnessDelta: -(14 - p.attrs.physical / 20) * (minutes / 90),
       };
       const clubId = world.clubs[fixture.homeClubId].id === p.clubId ? fixture.homeClubId : p.clubId ?? fixture.awayClubId;
-      if (rng.chance(INJURY_CHANCE * (minutes / 90) * medicalFactor(world, clubId))) {
+      // A squad worked on its fitness goes down less often.
+      const trainingInjury = clubId === world.humanClubId && world.training === 'fitness' ? 0.8 : 1;
+      if (rng.chance(INJURY_CHANCE * (minutes / 90) * medicalFactor(world, clubId) * trainingInjury)) {
         injuries.push({ playerId: id, days: Math.max(2, Math.round(rng.int(3, 45) * recoveryFactor(world, clubId))) });
       }
     }

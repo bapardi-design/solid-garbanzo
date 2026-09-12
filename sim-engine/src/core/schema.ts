@@ -158,6 +158,9 @@ export interface GoalEvent {
   assistId: string | null;
 }
 
+/** What the manager has the squad working on between matches. */
+export type TrainingFocus = 'balanced' | 'fitness' | 'attacking' | 'defending' | 'youth';
+
 export type CardKind = 'yellow' | 'second' | 'red';
 
 export interface CardEvent {
@@ -449,6 +452,8 @@ export interface World {
   halfTime: HalfTimeState | null;
   /** The human manager's boardroom, once they take a job. */
   boardroom: Boardroom | null;
+  /** What the human's squad works on between matches. */
+  training: TrainingFocus;
 }
 
 export const DEFAULT_CONFIG: WorldConfig = {
@@ -492,6 +497,7 @@ export function createEmptyWorld(config: WorldConfig): World {
     humanManagerId: null,
     careerOver: null,
     halfTime: null,
+    training: 'balanced',
     boardroom: null,
   };
 }

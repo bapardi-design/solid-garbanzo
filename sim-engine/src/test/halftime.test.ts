@@ -407,3 +407,51 @@ test('the last promotion place is settled by a play-off', async () => {
   assert.ok(up.includes(mine.winnerId!), 'the play-off winner is promoted');
   if (mine.winnerId !== third) assert.ok(!up.includes(third), 'finishing third is not enough');
 });
+
+test('what the squad trains on is what improves', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const A = await import('../actions.js');
+  const { DEFAULT_CONFIG, squad } = await import('../core/schema.js');
+
+  const run = (focus: Parameters<typeof A.setTraining>[1]) => {
+    const game = createGame({ ...DEFAULT_CONFIG, seed: 'training', nations: ['ENG'] });
+    const club = Object.values(game.world.clubs).find((c) => c.name === 'Sunderland')!;
+    A.takeOverClub(game.ctx, club.id, 'Gaffer');
+    const res = A.setTraining(game.ctx, focus);
+    assert.ok(res.ok, res.message);
+    const before = new Map(squad(game.world, club.id).map((p) => [p.id, { ...p.attrs }]));
+    for (let d = 0; d < 400; d++) {
+      step(game, 1);
+      if (game.world.day % game.world.seasonLength === game.world.seasonLength - 1) break;
+    }
+    const now = squad(game.world, club.id).filter((p) => before.has(p.id));
+    const gain = (k: 'technique' | 'physical') =>
+      now.reduce((s, p) => s + (p.attrs[k] - before.get(p.id)![k]), 0) / Math.max(1, now.length);
+    return { technique: gain('technique'), physical: gain('physical') };
+  };
+
+  const attack = run('attacking');
+  const defend = run('defending');
+  // Each costs what the other gains: a season on the ball is a season not in
+  // the gym. Without this the choice is free and there is nothing to weigh.
+  assert.ok(attack.technique > defend.technique, `technique: attacking ${attack.technique.toFixed(2)} vs defending ${defend.technique.toFixed(2)}`);
+  assert.ok(defend.physical > attack.physical, `physical: defending ${defend.physical.toFixed(2)} vs attacking ${attack.physical.toFixed(2)}`);
+});
+
+test('only the human club trains to order', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const A = await import('../actions.js');
+  const { DEFAULT_CONFIG, squad } = await import('../core/schema.js');
+  const game = createGame({ ...small, seed: 'training-scope' });
+  const clubId = A.jobOffers(game.ctx)[0].club.id;
+  A.takeOverClub(game.ctx, clubId, 'Gaffer');
+  A.setTraining(game.ctx, 'attacking');
+  const other = Object.values(game.world.clubs).find((c) => c.id !== clubId)!;
+  const before = new Map(squad(game.world, other.id).map((p) => [p.id, { ...p.attrs }]));
+  step(game, 120);
+  const now = squad(game.world, other.id).filter((p) => before.has(p.id));
+  const pace = now.reduce((s, p) => s + (p.attrs.pace - before.get(p.id)!.pace), 0) / Math.max(1, now.length);
+  const physical = now.reduce((s, p) => s + (p.attrs.physical - before.get(p.id)!.physical), 0) / Math.max(1, now.length);
+  // Another club's players are not dragged around by your training ground.
+  assert.ok(Math.abs(pace - physical) < 0.5, `pace ${pace.toFixed(2)} vs physical ${physical.toFixed(2)} at another club`);
+});
