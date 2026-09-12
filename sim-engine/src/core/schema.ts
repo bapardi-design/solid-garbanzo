@@ -201,6 +201,18 @@ export interface MatchReport {
   subs: MatchSub[];
   /** Tactic switched at half time, when one was. */
   tacticChange: { clubId: string; from: Tactic; to: Tactic } | null;
+  /** The numbers a match report carries, read off what the match already did. */
+  stats: MatchStats;
+  /** Best player on the pitch, by his rating for the match. */
+  motmId: string | null;
+}
+
+export interface MatchStats {
+  /** Share of the ball, as a percentage that adds to 100. */
+  possession: { home: number; away: number };
+  shots: { home: number; away: number };
+  onTarget: { home: number; away: number };
+  corners: { home: number; away: number };
 }
 
 /* ---------- the boardroom: money and decisions away from the team ---------- */

@@ -498,3 +498,31 @@ test('a club short of players still starts eleven', async () => {
     assert.equal(game.world.players[id].suspension, 0, 'nobody serving a ban is picked');
   }
 });
+
+test('a match report carries numbers that agree with the score', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const { DEFAULT_CONFIG } = await import('../core/schema.js');
+  const game = createGame({ ...DEFAULT_CONFIG, seed: 'stats', nations: ['ENG'] });
+  step(game, 120);
+  const played = Object.values(game.world.fixtures).filter((f) => f.report);
+  assert.ok(played.length > 200, 'a good few matches');
+
+  let shots = 0, onTarget = 0;
+  for (const f of played) {
+    const s = f.report!.stats;
+    assert.equal(s.possession.home + s.possession.away, 100, 'possession adds up');
+    assert.ok(s.possession.home >= 30 && s.possession.home <= 70, `possession ${s.possession.home}%`);
+    // A goal is a shot on target, and a shot on target is a shot. Report
+    // numbers that contradict the scoreline are worse than no numbers.
+    assert.ok(s.onTarget.home >= f.homeGoals, 'every goal was on target');
+    assert.ok(s.onTarget.away >= f.awayGoals, 'every goal was on target');
+    assert.ok(s.shots.home >= s.onTarget.home && s.shots.away >= s.onTarget.away, 'on target is a subset of shots');
+    assert.ok(f.report!.motmId, 'somebody is named man of the match');
+    shots += (s.shots.home + s.shots.away) / 2;
+    onTarget += (s.onTarget.home + s.onTarget.away) / 2;
+  }
+  // Around thirteen shots a side with a third on target is what football does.
+  const perTeam = shots / played.length;
+  assert.ok(perTeam > 9 && perTeam < 18, `${perTeam.toFixed(1)} shots a team`);
+  assert.ok(onTarget / shots > 0.25 && onTarget / shots < 0.55, `${((onTarget / shots) * 100).toFixed(0)}% on target`);
+});

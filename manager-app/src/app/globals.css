@@ -221,6 +221,17 @@ b.derby{font-family:var(--display);text-transform:uppercase;letter-spacing:.08em
 .warn-note{font-size:12px;color:var(--critical);margin:0 0 4px}
 .booked-note{font-size:12px;color:var(--ink-2);margin:0 0 8px;display:flex;align-items:center;gap:6px}
 .xi-list .nm .card-y{margin-left:6px}
+/* The numbers under a match: two figures either side of a shared bar */
+.matchstats{margin:10px 0 4px}
+.statrow{display:grid;grid-template-columns:34px 1fr 34px;align-items:center;gap:8px;padding:3px 0;font-size:13px}
+.statrow b{font-family:var(--mono);text-align:center}
+.statrow .mid{display:block}
+.statrow i{display:block;text-align:center;font-style:normal;font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.statrow .track{display:block;height:4px;background:var(--rule);border-radius:2px;overflow:hidden}
+.statrow .track em{display:block;height:100%;background:var(--accent)}
+.motm{margin:8px 0 0;font-size:13px;color:var(--muted)}
+.motm a{color:var(--ink);font-weight:600;cursor:pointer}
+.motm a:hover{color:var(--accent)}
 .report{margin-bottom:12px}
 label.small{font-size:11px}
 
