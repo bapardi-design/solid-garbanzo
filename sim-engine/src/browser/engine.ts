@@ -73,6 +73,7 @@ function migrate(world: World): void {
     // A save written before careers were kept season by season: the seasons
     // already played cannot be recovered, so the record starts from here.
     if (!Array.isArray(p.seasons)) p.seasons = [];
+    if (p.promisedGamesBy === undefined) p.promisedGamesBy = null;
     const q = p as typeof p & { suspension?: number };
     if (typeof q.suspension !== 'number') q.suspension = 0;
     const st = p.stats as typeof p.stats & { yellows?: number; reds?: number };
@@ -200,4 +201,5 @@ export type { Standing } from '../matchday/table.js';
 export type { Selection } from '../matchday/xi.js';
 export type { SeasonMetrics } from '../sim/metrics.js';
 export type { MarketEntry, BoardStatus, RenewalTerms, ActionResult, Vacancy, PlayerQuery, PlayerHit, ScoutReport, Honour, NewsQuery, LoanSuitor } from '../actions.js';
+export type { Concern, ConcernKind } from '../engines/morale.js';
 export type { Award } from '../core/events.js';

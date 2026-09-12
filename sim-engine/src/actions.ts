@@ -12,6 +12,7 @@ import { computeTable, positionOf } from './matchday/table.js';
 import { MAX_LEVEL, openBoardroom, scoutSpread, ticketFactor } from './engines/boardroom.js';
 import { projectedGate, projectedPrize, weeklyCommercial, weeklyOperations } from './engines/finance.js';
 import { currencyFor } from './engines/press.js';
+import { PROMISE_DAYS, squadConcerns, type Concern } from './engines/morale.js';
 import { MAX_SUBS } from './matchday/match.js';
 import { contractLengthFor, makeContract } from './world/generate.js';
 import { leagueOf } from './core/schema.js';
@@ -187,6 +188,27 @@ export function loanOutPlayer(ctx: Ctx, playerId: string, toClubId: string): Act
   if (p.listedAt !== null) ctx.emit('PLAYER_UNLISTED', { playerId });
   sendOnLoan(ctx, playerId, toClubId);
   return done(`${p.name} joins ${world.clubs[toClubId].name} on loan for the rest of the season.`);
+}
+
+/** What the dressing room is unhappy about, and what can be said to it. */
+export function concernsForHuman(ctx: Ctx): Concern[] {
+  const club = humanClub(ctx);
+  return club ? squadConcerns(ctx.world, club.id) : [];
+}
+
+/**
+ * Tell a player he will get his chance. Keeping it lifts him; letting the day
+ * pass costs twice what the promise gained, so it is not a free button.
+ */
+export function promiseGames(ctx: Ctx, playerId: string): ActionResult {
+  const { world } = ctx;
+  const club = humanClub(ctx);
+  const p = world.players[playerId];
+  if (!club || !p || p.clubId !== club.id) return fail('Not your player.');
+  if (p.loan) return fail(`${p.name} is out on loan.`);
+  if (p.promisedGamesBy !== null) return fail(`${p.name} is already waiting on a promise.`);
+  ctx.emit('GAMES_PROMISED', { playerId, byDay: world.day + PROMISE_DAYS, morale: 8 });
+  return done(`${p.name} has been told he will start within ${PROMISE_DAYS} days.`);
 }
 
 /** Terminate a contract; the club pays half the remaining wages. */

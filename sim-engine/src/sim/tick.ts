@@ -4,7 +4,7 @@ import { seasonDay } from '../core/schema.js';
 import { boardReview, chooseTactics, fillManagerVacancies, isMidSeasonReviewDay } from '../engines/ai.js';
 import { revalue, weeklyDevelopment } from '../engines/development.js';
 import { matchdayIncome, weeklyFinance } from '../engines/finance.js';
-import { postMatchMorale, weeklyMorale } from '../engines/morale.js';
+import { postMatchMorale, settlePromises, weeklyMorale } from '../engines/morale.js';
 import { advanceCups, endSeason, openPlayoffs, startSeason } from '../engines/season.js';
 import { inTransferWindow, renewContracts, runTransferDay } from '../engines/transfers.js';
 import { finishMatch, simulateFirstHalf, simulateMatch, type HalfTimeDecision } from '../matchday/match.js';
@@ -85,6 +85,7 @@ function startOfDay(ctx: Ctx): void {
   if (dow === 4) {
     weeklyDevelopment(ctx);
     weeklyMorale(ctx);
+    settlePromises(ctx);
     if (sd2 % 28 === 4) revalue(ctx);
   }
 }

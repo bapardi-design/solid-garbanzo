@@ -58,6 +58,7 @@ function basePlayer(ctx: Ctx, clubId: string | null, position: Position, name: s
     seasons: [],
     retired: false,
     lastStartDay: -1,
+    promisedGamesBy: null,
     freeSince: clubId ? null : ctx.world.day,
     listedAt: null,
   };
