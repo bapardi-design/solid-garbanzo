@@ -22,9 +22,24 @@ export function availablePlayers(world: World, clubId: string): Player[] {
   return squad(world, clubId).filter((p) => !p.retired && p.injuryDays === 0 && p.suspension === 0);
 }
 
+/**
+ * Eleven have to start. When bans and injuries leave a club short, the ones
+ * carrying a knock play through it, shortest lay-off first — which is what a
+ * club with nobody else does. A ban is not negotiable, so a suspended player
+ * is never called on.
+ */
+function matchdayPool(world: World, clubId: string): Player[] {
+  const pool = availablePlayers(world, clubId);
+  if (pool.length >= 11) return pool;
+  const walkingWounded = squad(world, clubId)
+    .filter((p) => !p.retired && p.suspension === 0 && p.injuryDays > 0)
+    .sort((a, b) => a.injuryDays - b.injuryDays);
+  return [...pool, ...walkingWounded.slice(0, 11 - pool.length)];
+}
+
 export function selectXI(world: World, clubId: string, tactic: Tactic): Selection {
   const formation = FORMATIONS[tactic];
-  const pool = availablePlayers(world, clubId);
+  const pool = matchdayPool(world, clubId);
   const taken = new Set<string>();
   const byPos: Selection['byPos'] = { GK: [], DF: [], MF: [], FW: [] };
 

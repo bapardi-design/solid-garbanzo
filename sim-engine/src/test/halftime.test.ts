@@ -455,3 +455,30 @@ test('only the human club trains to order', async () => {
   // Another club's players are not dragged around by your training ground.
   assert.ok(Math.abs(pace - physical) < 0.5, `pace ${pace.toFixed(2)} vs physical ${physical.toFixed(2)} at another club`);
 });
+
+test('a club short of players still starts eleven', async () => {
+  const { createGame } = await import('../browser/engine.js');
+  const { DEFAULT_CONFIG, squad } = await import('../core/schema.js');
+  const { selectXI } = await import('../matchday/xi.js');
+  const game = createGame({ ...DEFAULT_CONFIG, seed: 'shorthanded', nations: ['ENG'] });
+  const club = Object.values(game.world.clubs)[0];
+  const players = squad(game.world, club.id);
+  assert.ok(players.length >= 12, 'the club starts with a squad');
+
+  // Ban and injure until barely ten are standing: bans from cards and a run of
+  // injuries can do this to a thin squad, and it once put ten men on the pitch
+  // from the first whistle.
+  const spare = players.slice(0, players.length - 10);
+  for (let i = 0; i < spare.length; i++) {
+    if (i % 2 === 0) spare[i].suspension = 2; else spare[i].injuryDays = 9;
+  }
+  const fit = squad(game.world, club.id).filter((p) => p.injuryDays === 0 && p.suspension === 0);
+  assert.ok(fit.length < 11, `only ${fit.length} are fully fit`);
+
+  const xi = selectXI(game.world, club.id, club.tactic);
+  assert.equal(xi.playerIds.length, 11, 'eleven start');
+  assert.equal(new Set(xi.playerIds).size, 11, 'and they are eleven different players');
+  for (const id of xi.playerIds) {
+    assert.equal(game.world.players[id].suspension, 0, 'nobody serving a ban is picked');
+  }
+});
