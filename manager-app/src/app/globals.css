@@ -490,3 +490,12 @@ td,th{border-bottom:1px solid var(--rule)}
 .settled li b{grid-column:2}
 .settled li span:last-child{grid-column:2;color:var(--ink-2);font-size:12px}
 .settled .tag{grid-row:span 2;align-self:start}
+
+/* The site password page: one small panel, centred, nothing else on screen. */
+.gate {
+  min-height: 70vh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+}
+.gate .panel { width: min(380px, 100%); }

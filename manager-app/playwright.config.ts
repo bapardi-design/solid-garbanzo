@@ -6,6 +6,10 @@ import { defineConfig, devices } from '@playwright/test';
  */
 const port = Number(process.env.E2E_PORT ?? 3311);
 const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${port}`;
+/** A second server behind the site password, for the gate's own test. */
+const gatePort = port + 1;
+export const GATE_ORIGIN = `http://localhost:${gatePort}`;
+export const GATE_PASSWORD = 'open-sesame-e2e';
 
 export default defineConfig({
   testDir: './tests',
@@ -18,10 +22,19 @@ export default defineConfig({
   reporter: process.env.CI ? [['list'], ['github']] : [['list']],
   use: { baseURL, viewport: { width: 1440, height: 1000 }, trace: 'retain-on-failure' },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: process.env.E2E_BASE_URL ? undefined : {
-    command: `npx next start -p ${port}`,
-    url: baseURL,
-    timeout: 120_000,
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: process.env.E2E_BASE_URL ? undefined : [
+    {
+      command: `npx next start -p ${port}`,
+      url: baseURL,
+      timeout: 120_000,
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      command: `npx next start -p ${gatePort}`,
+      url: GATE_ORIGIN,
+      timeout: 120_000,
+      reuseExistingServer: !process.env.CI,
+      env: { SITE_PASSWORD: GATE_PASSWORD },
+    },
+  ],
 });
