@@ -5,7 +5,7 @@
  * event log from an empty world rebuilds the identical state.
  */
 import type { Event } from './events.js';
-import { ATTRIBUTE_KEYS, type Fixture, type World } from './schema.js';
+import { ATTRIBUTE_KEYS, type Fixture, type Loan, type World } from './schema.js';
 import { clamp } from './rng.js';
 
 /** Keeps id counters in step with stored entities so replay regenerates identical ids. */
@@ -26,6 +26,17 @@ function removeFrom(arr: string[] | undefined, id: string): void {
 function addToSquad(w: World, clubId: string, playerId: string): void {
   const s = (w.idx.squadByClub[clubId] ??= []);
   if (!s.includes(playerId)) s.push(playerId);
+}
+
+/** Set or clear a loan, keeping the owner's list of players out on loan right. */
+function setLoan(w: World, playerId: string, loan: Loan | null): void {
+  const p = w.players[playerId];
+  if (p.loan) removeFrom(w.idx.loanedOutBy[p.loan.fromClubId], playerId);
+  p.loan = loan;
+  if (loan) {
+    const out = (w.idx.loanedOutBy[loan.fromClubId] ??= []);
+    if (!out.includes(playerId)) out.push(playerId);
+  }
 }
 
 function movePlayer(w: World, playerId: string, toClubId: string | null): void {
@@ -139,7 +150,7 @@ export function reduce(w: World, e: Event): void {
       w.contracts[c.id] = c;
       w.idx.contractByPlayer[c.playerId] = c.id;
       p.contractId = c.id;
-      p.loan = null;
+      setLoan(w, p.id, null);
       if (p.clubId !== c.clubId) movePlayer(w, c.playerId, c.clubId);
       if (e.payload.record) w.transfers.push(structuredClone(e.payload.record));
       break;
@@ -150,7 +161,7 @@ export function reduce(w: World, e: Event): void {
       delete w.idx.contractByPlayer[playerId];
       const p = w.players[playerId];
       p.contractId = null;
-      p.loan = null;
+      setLoan(w, p.id, null);
       movePlayer(w, playerId, null);
       break;
     }
@@ -320,7 +331,7 @@ export function reduce(w: World, e: Event): void {
       w.contracts[contract.id] = contract;
       w.idx.contractByPlayer[record.playerId] = contract.id;
       p.contractId = contract.id;
-      p.loan = null;
+      setLoan(w, p.id, null);
       p.listedAt = null;
       movePlayer(w, record.playerId, record.toClubId);
       if (record.fee > 0) {
@@ -339,7 +350,7 @@ export function reduce(w: World, e: Event): void {
       const record = structuredClone(e.payload.record);
       noteId(w, record.id);
       const p = w.players[record.playerId];
-      p.loan = { toClubId: record.toClubId, returnSeason };
+      setLoan(w, p.id, { toClubId: record.toClubId, fromClubId: record.fromClubId!, returnSeason });
       movePlayer(w, record.playerId, record.toClubId);
       w.transfers.push(record);
       break;
@@ -348,7 +359,7 @@ export function reduce(w: World, e: Event): void {
       const record = structuredClone(e.payload.record);
       noteId(w, record.id);
       const p = w.players[record.playerId];
-      p.loan = null;
+      setLoan(w, p.id, null);
       movePlayer(w, record.playerId, record.toClubId);
       w.transfers.push(record);
       break;
@@ -361,7 +372,7 @@ export function reduce(w: World, e: Event): void {
       removeFrom(w.freeAgents, p.id);
       p.clubId = null;
       p.contractId = null;
-      p.loan = null;
+      setLoan(w, p.id, null);
       p.retired = true;
       break;
     }
@@ -466,7 +477,7 @@ export function reduce(w: World, e: Event): void {
       if (cid) { delete w.contracts[cid]; delete w.idx.contractByPlayer[playerId]; }
       const p = w.players[playerId];
       p.contractId = null;
-      p.loan = null;
+      setLoan(w, p.id, null);
       p.listedAt = null;
       movePlayer(w, playerId, null);
       if (payoff > 0) {

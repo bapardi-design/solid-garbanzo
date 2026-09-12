@@ -1,28 +1,23 @@
 /** Transfer market: signings, free agents, loans, and contract renewals. */
 import type { Ctx } from '../core/context.js';
 import type { Player, Position, TransferRecord } from '../core/schema.js';
-import { POSITIONS, bottomTier, contractOf, isRealWorld, nextId, seasonDay, squad, tierOfClub } from '../core/schema.js';
-import { overall, squadStrength, wageDemand, weeklyWageBill } from '../rating.js';
+import { MAX_SQUAD, POSITIONS, bottomTier, contractOf, isRealWorld, nextId, ownSquadSize, seasonDay, squad, squadTarget, tierOfClub } from '../core/schema.js';
+import { LOAN_WAGE_SHARE, overall, squadStrength, wageDemand, weeklyWageBill } from '../rating.js';
 import { FORMATIONS } from '../matchday/xi.js';
 import { contractLengthFor, makeContract } from '../world/generate.js';
 import { aiBidsForHuman } from './bids.js';
 import { clamp } from '../core/rng.js';
 
+// The squad a club carries is a property of the world, not of the market, so
+// it lives with the rest of the world's shape; the market is where it is read.
+export { MAX_SQUAD, ownSquadSize, squadTarget };
+
 export const SUMMER_WINDOW: [number, number] = [0, 27];
 export const WINTER_WINDOW: [number, number] = [168, 195];
 export const MIN_PER_POSITION: Record<Position, number> = { GK: 2, DF: 6, MF: 6, FW: 3 };
-export const MAX_SQUAD = 30;
+/** Loans a club will take at once. */
+export const MAX_LOANS_IN = 3;
 
-/**
- * How many players a club carries. Money sets the number, not ambition: a
- * top-flight squad is deeper than a fourth-tier one because someone can pay
- * for the depth. Against one cap for everybody the lower divisions ended up
- * with the biggest squads in the game, because a cheap starter is easy to
- * improve on and a dear one is not.
- */
-export function squadTarget(world: Ctx['world'], clubId: string): number {
-  return clamp(Math.round(18 + (world.clubs[clubId]?.reputation ?? 50) * 0.09), 20, MAX_SQUAD - 2);
-}
 const MAX_SIGNINGS_PER_DAY = 2;
 /** Real-world clubs rebuild gradually: paid or free signings per window. */
 const MAX_SIGNINGS_PER_WINDOW = 4;
@@ -74,7 +69,7 @@ export function buildMarket(ctx: Ctx): Listing[] {
       continue;
     }
     const cashStrapped = club.balance < 0;
-    const overloaded = players.length > squadTarget(world, club.id);
+    const overloaded = ownSquadSize(world, club.id) > squadTarget(world, club.id);
     for (const pos of POSITIONS) {
       const byPos = ranked(players, pos);
       byPos.forEach((p, i) => {
@@ -127,10 +122,10 @@ export function clubNeeds(ctx: Ctx, clubId: string, leagueLine: Record<Position,
     const weakest = starters.length ? overall(starters[starters.length - 1]) : 0;
     const club = world.clubs[clubId];
     const weakestValue = starters.length ? starters[starters.length - 1].value : 0;
-    const target = squadTarget(world, clubId);
+    const room = squadTarget(world, clubId) - ownSquadSize(world, clubId);
     if (line < leagueLine[pos] - 2) needs.push({ pos, minRating: weakest + 3, priority: 2 });
-    else if (club.transferBudget > weakestValue * 3 && players.length < target) needs.push({ pos, minRating: weakest + 2, priority: 1.5 });
-    else if (players.length < target) needs.push({ pos, minRating: weakest - 15, priority: 1 });
+    else if (club.transferBudget > weakestValue * 3 && room > 0) needs.push({ pos, minRating: weakest + 2, priority: 1.5 });
+    else if (room > 0) needs.push({ pos, minRating: weakest - 15, priority: 1 });
   }
   return needs.sort((a, b) => b.priority - a.priority);
 }
@@ -181,7 +176,7 @@ export function runTransferDay(ctx: Ctx): void {
       // cover was how the small clubs crept back over their means every
       // summer.
       const spare = need.priority >= 3 ? 3 : need.priority >= 2 ? 2 : 0;
-      if (squad(world, clubId).length >= Math.min(squadTarget(world, clubId) + spare, MAX_SQUAD)) continue;
+      if (ownSquadSize(world, clubId) >= Math.min(squadTarget(world, clubId) + spare, MAX_SQUAD)) continue;
       const wageRoom = club.wageBudget - weeklyWageBill(world, clubId);
       const candidates = market
         .filter((l) => l.player.position === need.pos && l.fromClubId !== clubId && !sold.has(l.player.id) && !l.player.retired)
@@ -215,30 +210,64 @@ export function runTransferDay(ctx: Ctx): void {
   aiBidsForHuman(ctx);
 }
 
+/**
+ * Clubs that would take this player for the rest of the season: a division or
+ * more below his own, with room in the squad, a hole where he plays and the
+ * wages to cover him.
+ *
+ * `order` is the order to consider them in — the weekly run passes its own
+ * shuffle so the draw stays where it was; anything else gets them by name.
+ */
+export function loanSuitors(ctx: Ctx, playerId: string, order?: string[], lineCache = new Map<string, Record<Position, number>>()): string[] {
+  const { world } = ctx;
+  const p = world.players[playerId];
+  const ownerId = contractOf(world, playerId)?.clubId;
+  if (!p || !ownerId) return [];
+  const owner = world.clubs[ownerId];
+  const ownerTier = tierOfClub(world, ownerId);
+  if (ownerTier === bottomTier(world, owner.nationId)) return [];
+  const wage = contractOf(world, p.id)?.wage ?? 0;
+  return (order ?? Object.keys(world.clubs).sort()).filter((cid) => {
+    if (cid === ownerId || cid === world.humanClubId) return false;
+    const club = world.clubs[cid];
+    if (club.nationId !== owner.nationId || tierOfClub(world, cid) <= ownerTier) return false;
+    // A loanee sits on top of the squad a club pays for, because somebody else
+    // is paying for him: what limits him is places, not money, so it is three
+    // at a time and never past the cap everybody is held to. Counted against
+    // the paid-for squad he had nowhere to go — the summer's signings fill a
+    // club to exactly that line, and the loan market never opened at all.
+    const here = squad(world, cid);
+    if (here.length >= MAX_SQUAD) return false;
+    if (here.filter((x) => x.loan).length >= MAX_LOANS_IN) return false;
+    if (ownSquadSize(world, cid) > squadTarget(world, cid) + 2) return false;
+    if (!lineCache.has(club.leagueId)) lineCache.set(club.leagueId, leagueLines(ctx, club.leagueId));
+    const need = clubNeeds(ctx, cid, lineCache.get(club.leagueId)!).find((n) => n.pos === p.position);
+    return need !== undefined && overall(p) >= need.minRating - 2 && wage * LOAN_WAGE_SHARE <= club.wageBudget - weeklyWageBill(world, cid);
+  });
+}
+
+/** Send a player out until the end of the season. */
+export function sendOnLoan(ctx: Ctx, playerId: string, hostId: string): void {
+  const { world } = ctx;
+  const p = world.players[playerId];
+  const ownerId = contractOf(world, playerId)!.clubId;
+  ctx.emit('LOAN_STARTED', { record: record(ctx, p, ownerId, hostId, 0, 'loan'), returnSeason: world.season });
+}
+
 function runLoans(ctx: Ctx, moved: Set<string>): void {
   const { world, rng } = ctx;
   const clubs = rng.shuffle(Object.values(world.clubs).map((c) => c.id));
   const lineCache = new Map<string, Record<Position, number>>();
   for (const ownerId of clubs) {
     if (ownerId === world.humanClubId) continue;
-    const owner = world.clubs[ownerId];
-    const ownerTier = tierOfClub(world, ownerId);
     const prospects = squad(world, ownerId)
       .filter((p) => !p.loan && p.age <= 22 && !moved.has(p.id) && p.potential >= overall(p) + 5 && rankAtClub(ctx, p) > starterSlots(p.position) + 1)
       .filter((p) => ranked(squad(world, ownerId), p.position).length > MIN_PER_POSITION[p.position]);
     if (prospects.length === 0) continue;
     const prospect = rng.pick(prospects);
-    const hosts = clubs.filter((cid) => cid !== ownerId && cid !== world.humanClubId && world.clubs[cid].nationId === owner.nationId && tierOfClub(world, cid) > ownerTier && squad(world, cid).length < squadTarget(world, cid));
-    const willing = hosts.filter((cid) => {
-      const club = world.clubs[cid];
-      if (!lineCache.has(club.leagueId)) lineCache.set(club.leagueId, leagueLines(ctx, club.leagueId));
-      const need = clubNeeds(ctx, cid, lineCache.get(club.leagueId)!).find((n) => n.pos === prospect.position);
-      const wage = contractOf(world, prospect.id)?.wage ?? 0;
-      return need !== undefined && overall(prospect) >= need.minRating - 2 && wage <= club.wageBudget - weeklyWageBill(world, cid);
-    });
-    if (willing.length === 0 || ownerTier === bottomTier(world, owner.nationId)) continue;
-    const hostId = rng.pick(willing);
-    ctx.emit('LOAN_STARTED', { record: record(ctx, prospect, ownerId, hostId, 0, 'loan'), returnSeason: world.season });
+    const willing = loanSuitors(ctx, prospect.id, clubs, lineCache);
+    if (willing.length === 0) continue;
+    sendOnLoan(ctx, prospect.id, rng.pick(willing));
     moved.add(prospect.id);
   }
 }
@@ -259,7 +288,7 @@ export function renewContracts(ctx: Ctx, finalCall: boolean): void {
       const keyPlayer = rank <= starterSlots(p.position) + 2;
       const prospect = comingGood(world, p, club.id);
       // Squad depth: keep useful backups when the squad is not oversized.
-      const depth = rank <= starterSlots(p.position) + 4 && players.length <= squadTarget(world, club.id) && p.age < 32 && rng.chance(0.6);
+      const depth = rank <= starterSlots(p.position) + 4 && ownSquadSize(world, club.id) <= squadTarget(world, club.id) && p.age < 32 && rng.chance(0.6);
       const tooOld = p.age >= 34;
       if (tooOld || !(keyPlayer || prospect || depth)) continue;
       if (!finalCall && !rng.chance(0.5)) continue;
@@ -284,7 +313,7 @@ export function releaseSurplus(ctx: Ctx): void {
   const { world } = ctx;
   for (const clubId of Object.keys(world.clubs).sort()) {
     if (clubId === world.humanClubId) continue;
-    let over = squad(world, clubId).filter((p) => !p.loan).length - squadTarget(world, clubId);
+    let over = ownSquadSize(world, clubId) - squadTarget(world, clubId);
     if (over <= 0) continue;
     const worstFirst = squad(world, clubId)
       .filter((p) => !p.loan)

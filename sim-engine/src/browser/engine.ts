@@ -66,12 +66,22 @@ function migrate(world: World): void {
     if (!ht.bookedAway) ht.bookedAway = [];
     if (typeof ht.derby !== 'boolean') ht.derby = false;
   }
+  // A loan written before it recorded whose player it was, and the index of
+  // who is out where, which no save has ever carried.
+  world.idx.loanedOutBy = {};
   for (const p of Object.values(world.players)) {
     const q = p as typeof p & { suspension?: number };
     if (typeof q.suspension !== 'number') q.suspension = 0;
     const st = p.stats as typeof p.stats & { yellows?: number; reds?: number };
     if (typeof st.yellows !== 'number') st.yellows = 0;
     if (typeof st.reds !== 'number') st.reds = 0;
+    if (!p.loan) continue;
+    const owner = p.loan.fromClubId ?? contractOf(world, p.id)?.clubId;
+    // Without an owner there is nobody to go back to, so the loan is dropped
+    // and he stays where he is playing.
+    if (!owner) { p.loan = null; continue; }
+    p.loan.fromClubId = owner;
+    (world.idx.loanedOutBy[owner] ??= []).push(p.id);
   }
   for (const f of Object.values(world.fixtures)) {
     const r = f.report as (MatchReport & { subs?: MatchReport['subs']; second?: MatchReport['second']; tacticChange?: MatchReport['tacticChange']; halfTimeScore?: MatchReport['halfTimeScore']; cards?: MatchReport['cards']; derby?: boolean; stats?: MatchReport['stats']; motmId?: MatchReport['motmId'] }) | null;
@@ -186,5 +196,5 @@ export type { Event, EventType } from '../core/events.js';
 export type { Standing } from '../matchday/table.js';
 export type { Selection } from '../matchday/xi.js';
 export type { SeasonMetrics } from '../sim/metrics.js';
-export type { MarketEntry, BoardStatus, RenewalTerms, ActionResult, Vacancy, PlayerQuery, PlayerHit, ScoutReport, Honour, NewsQuery } from '../actions.js';
+export type { MarketEntry, BoardStatus, RenewalTerms, ActionResult, Vacancy, PlayerQuery, PlayerHit, ScoutReport, Honour, NewsQuery, LoanSuitor } from '../actions.js';
 export type { Award } from '../core/events.js';

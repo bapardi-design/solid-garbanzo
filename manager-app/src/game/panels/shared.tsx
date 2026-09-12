@@ -120,6 +120,7 @@ export function PlayerDrawer({ game, playerId, clubId, onClose, onAction }: { ga
   const [renewYears, setRenewYears] = useState(2);
   const [renewWage, setRenewWage] = useState<number | null>(null);
   const [askPrice, setAskPrice] = useState<number | null>(null);
+  const [loanTo, setLoanTo] = useState<string>('');
   const market = useMemo(() => (p && p.clubId !== clubId ? Engine.marketForHuman(ctx).find((m) => m.player.id === playerId) ?? null : null), [ctx, playerId, p, clubId, world.day]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!p) return null;
   const club = p.clubId ? world.clubs[p.clubId] : null;
@@ -131,6 +132,10 @@ export function PlayerDrawer({ game, playerId, clubId, onClose, onAction }: { ga
   const avg = Engine.averageRating(p);
   const news = Engine.newsFeed(world, { playerId: p.id, limit: 5 });
   const bid = world.pendingBids.find((b) => b.playerId === p.id);
+  // Recomputed only when the world moves: it reads every club in the pyramid.
+  // Keyed on the transfer count as well as the day: the world is mutated in
+  // place, so a memo on the world alone never notices a move.
+  const loanOffers = useMemo(() => (mine ? Engine.loanOffersFor(ctx, playerId) : []), [ctx, playerId, mine, world.day, world.transfers.length]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="drawer-backdrop" onClick={onClose}>
       <aside className="drawer" onClick={(e) => e.stopPropagation()} aria-label={p.name}>
@@ -182,6 +187,18 @@ export function PlayerDrawer({ game, playerId, clubId, onClose, onAction }: { ga
                 ) : <button className="btn small" onClick={() => onAction(Engine.unlistPlayer(ctx, p.id))}>Take off the market ({money(p.listedAt, cur)})</button>}
                 {!p.loan ? <button className="btn small danger" onClick={() => { if (confirm(`Release ${p.name}? Half the remaining wages are paid off.`)) { onAction(Engine.releasePlayer(ctx, p.id)); onClose(); } }}>Release</button> : null}
               </div>
+              {loanOffers.length ? (
+                <>
+                  <p className="side">Out on loan</p>
+                  <div className="inline-form">
+                    <select value={loanTo || loanOffers[0].clubId} onChange={(e) => setLoanTo(e.target.value)} aria-label="Loan club">
+                      {loanOffers.map((o) => <option key={o.clubId} value={o.clubId}>{o.name} — {o.note}</option>)}
+                    </select>
+                    <button className="btn small" onClick={() => { onAction(Engine.loanOutPlayer(ctx, p.id, loanTo || loanOffers[0].clubId)); onClose(); }}>Send him out</button>
+                  </div>
+                  <p className="muted small">He comes back at the end of the season. They pay a third of his wages, and he gets the games he will not get here — a young player who does not play barely improves.</p>
+                </>
+              ) : null}
               {bid ? <p className="notice">{world.clubs[bid.toClubId].name} have bid {money(bid.fee, cur)}. Answer it under Transfers → Offers.</p> : null}
             </section>
           ) : (
