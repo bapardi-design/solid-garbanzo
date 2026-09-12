@@ -364,3 +364,46 @@ test('the top flight does not rot away', async () => {
   // a point a season until the football on show was two divisions worse.
   assert.ok(marks[3] > marks[0] - 4, `top flight went ${marks.map((m) => m.toFixed(1)).join(' → ')}`);
 });
+
+test('the last promotion place is settled by a play-off', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const { DEFAULT_CONFIG } = await import('../core/schema.js');
+  const { computeTable } = await import('../matchday/table.js');
+  const game = createGame({ ...DEFAULT_CONFIG, seed: 'playoffs', nations: ['ENG'] });
+  for (let d = 0; d < 400; d++) {
+    step(game, 1);
+    if (game.world.day % game.world.seasonLength === game.world.seasonLength - 1) break;
+  }
+  const championship = Object.values(game.world.competitions)
+    .find((c) => c.kind === 'league' && c.tier === 2 && c.season === game.world.season);
+  assert.ok(championship && championship.kind === 'league');
+  const table = computeTable(game.world, championship);
+  const playoffs = Object.values(game.world.competitions)
+    .filter((c) => c.kind === 'cup' && c.cupKind === 'playoff' && c.season === game.world.season);
+  assert.ok(playoffs.length >= 3, 'every division that promotes holds one');
+
+  const mine = playoffs.find((c) => c.name.startsWith(championship.name));
+  assert.ok(mine && mine.kind === 'cup');
+  // The four below the automatic places, and nobody else.
+  const expected = table.slice(championship.promote - 1, championship.promote + 3).map((r) => r.clubId);
+  assert.deepEqual([...mine.clubIds].sort(), [...expected].sort(), 'the right four clubs play');
+  assert.ok(mine.winnerId, 'it produces a winner');
+
+  const fixtures = (game.world.idx.fixturesByCompetition[mine.id] ?? []).map((id) => game.world.fixtures[id]);
+  assert.equal(fixtures.length, 3, 'two semi-finals and a final');
+  for (const f of fixtures) {
+    assert.ok(f.played && f.winnerId, 'a play-off tie cannot be drawn');
+    assert.ok(f.day - game.world.seasonStartDay > 348, 'they come after the league is over');
+  }
+
+  const third = table[championship.promote - 1].clubId;
+  const before = new Set(championship.clubIds);
+  step(game, 3);
+  const top = Object.values(game.world.competitions)
+    .find((c) => c.kind === 'league' && c.tier === 1 && c.season === game.world.season);
+  assert.ok(top && top.kind === 'league');
+  const up = top.clubIds.filter((id) => before.has(id));
+  assert.equal(up.length, championship.promote, 'the same number go up as before');
+  assert.ok(up.includes(mine.winnerId!), 'the play-off winner is promoted');
+  if (mine.winnerId !== third) assert.ok(!up.includes(third), 'finishing third is not enough');
+});

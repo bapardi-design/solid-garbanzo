@@ -8,6 +8,7 @@ import { Rng, hashString } from '../core/rng.js';
 import { CUSTOM_CONFIG, DEFAULT_CONFIG, createEmptyWorld, isRealWorld, leagueOf, nationFromLeagueId, seasonDay, squad, tierOfClub, type CardEvent, type Fixture, type MatchReport, type World, type WorldConfig } from '../core/schema.js';
 import { generateWorld } from '../world/generate.js';
 import { computeGroupTable, computeTable, positionOf } from '../matchday/table.js';
+import { PLAYOFF_FIELD, playoffCompId } from '../engines/season.js';
 import { explainMatch, isDerby, MAX_SUBS, type HalfTimeDecision } from '../matchday/match.js';
 import { overall, averageRating } from '../rating.js';
 import { tierFromLeagueId } from '../core/schema.js';
@@ -161,7 +162,7 @@ export function careerReport(game: Game): string | null {
 export const api = {
   ...actions,
   createGame, resumeGame, snapshotGame, step, resumeHalfTime, MAX_SUBS, daysLeftInSeason, quickHash, fixturesOnDay, careerReport, selectXI, contractOf, wageDemand, playerValue, effectiveRating, inTransferWindow,
-  computeTable, computeGroupTable, positionOf, explainMatch, isDerby, overall, averageRating, squad, seasonDay, leagueOf, tierFromLeagueId, tierOfClub, nationFromLeagueId, isRealWorld, checkInvariants,
+  computeTable, computeGroupTable, positionOf, explainMatch, isDerby, playoffCompId, PLAYOFF_FIELD, overall, averageRating, squad, seasonDay, leagueOf, tierFromLeagueId, tierOfClub, nationFromLeagueId, isRealWorld, checkInvariants,
   weeklyWageBill, squadStrength, signingsThisWindow, currencyFor, money, ordinal, roundLabel, MAX_FACILITY_LEVEL,
   DEFAULT_CONFIG, CUSTOM_CONFIG, NATIONS, REAL_WORLD, CONTINENTAL_CUP_NAME, SUMMER_WINDOW, WINTER_WINDOW,
 };
