@@ -86,7 +86,7 @@ the substitutions and the half-time score are all recorded on the report.
 ### The drift, and where it came from
 
 Goals per match used to rise about 0.13 across six seasons. Over three seeds
-they now move between −0.02 and +0.10, a mean of +0.04, comparing seasons one
+they now move between −0.01 and +0.11, a mean of +0.04, comparing seasons one
 and two with five and six against a 0.05 swing from one season to the next.
 Most of what is left is the price of an open loan market — with loans shut the
 same three seeds came out at −0.03 to +0.03 — because a boy out on loan plays,
@@ -162,14 +162,14 @@ What is left of the drift is one thing, and it is not calibration. Measured
 over eight seasons of the English world, with squads and club counts steady
 throughout:
 
-| Share of every squad | Season 1 | Season 8 |
-| --- | --- | --- |
-| 16-19 | 12% | 37% |
-| 20-23 | 29% | 30% |
-| 24-27 | 33% | 10% |
-| 28-31 | 21% | 16% |
-| 32+ | 5% | 7% |
-| Average age | 24.7 | 22.5 |
+| Share of every squad | Season 1 | Season 8, before | Season 8, now |
+| --- | --- | --- | --- |
+| 16-19 | 12% | 37% | 33% |
+| 20-23 | 29% | 30% | 31% |
+| 24-27 | 33% | 10% | 11% |
+| 28-31 | 21% | 16% | 18% |
+| 32+ | 5% | 7% | 8% |
+| Average age | 24.7 | 22.5 | 22.9 |
 
 A footballer's best years empty out and schoolboys fill the squad. It is
 arithmetic: three or four academy intakes a year into a squad of twenty-four
@@ -177,12 +177,34 @@ turns the whole thing over in eight years, so nobody can be much older than
 that, and a squad of boys is a squad whose ratings are all still climbing
 towards their ceilings. That is the ratchet under everything above.
 
-Halving the intake is not the answer on its own — measured over eight seasons
-the top flight fell to seventeen players and clubs began turning up without a
-fit goalkeeper, because nothing else in the world makes footballers. What the
-pyramid needs is for most of an academy to be released at eighteen or
-nineteen, the way a real one is, and for the market to carry more of the load
-of filling a squad. That is the next thing to fix.
+Two links in the chain that fed it are fixed. A useful backup's renewal used
+to be gated on the squad being under its target, which after a summer's
+signings it never is, so at twenty-four — the age prospect cover ran out —
+anybody outside the first eleven or two was let go. And a free agent nobody
+wanted retired after a single season unattached, so a twenty-five year old
+released in the summer and not signed by the next left football for good
+rather than dropping down the pyramid. Together they are worth about four
+points on the sixteen to nineteens and half a year on the average age. The
+shape is still wrong.
+
+Measured over eight seasons, and where each one got to:
+
+- releasing a prospect at twenty-one instead of twenty-four, and raising the
+  bar to clearly above the club's standard — no effect on the pyramid
+- halving the academy intake — the shape improves, but the top flight falls to
+  seventeen players and clubs turn up without a fit goalkeeper, because
+  nothing else in the world makes footballers: a transfer moves a player,
+  only an intake creates one and only retirement removes one
+- halving the intake with free agents surviving two seasons — the same
+  collapse, the top flight at eighteen or nineteen while the lower divisions
+  hold at twenty-four
+
+The open question is why the top flight cannot restock from the market when
+the intake falls. It is not money or supply: measured at the point of the
+collapse, top-flight clubs hold four unmet needs apiece, transfer budgets in
+the hundreds of millions, and 1,834 of the 1,850 listings in the world are
+affordable to them. Something between a need and a signing is refusing, and
+finding it is the next thing.
 
 Measured and rejected along the way, each across three seeds:
 
