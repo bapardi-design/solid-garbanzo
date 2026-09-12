@@ -6,7 +6,7 @@ import { clamp } from '../core/rng.js';
 import { continentalEntryFee, cupPrize, groupWinBonus, prizeMoney, setBudgets } from './finance.js';
 import { academyBonus } from './boardroom.js';
 import { chooseTactics, expireManagerContracts, fillManagerVacancies, boardReview } from './ai.js';
-import { renewContracts, returnLoans } from './transfers.js';
+import { releaseSurplus, renewContracts, returnLoans, squadTarget } from './transfers.js';
 import { revalue } from './development.js';
 import { cupRounds, scheduleCupRound, scheduleGroups, scheduleLeague } from '../matchday/fixtures.js';
 import { penaltyShootout } from '../matchday/match.js';
@@ -100,8 +100,11 @@ export function startSeason(ctx: Ctx, season: number): void {
     // Sized to the room the club has. A fixed two a year left squads shrinking
     // by a player a season as age took its toll; a fixed four filled them to
     // the cap and the transfer market seized up.
-    const room = world.config.squadSize + 2 - squad(world, club.id).length;
-    const intake = clamp(rng.int(2, 4) + (academy >= 5 ? 1 : 0) + (room > 4 ? 1 : 0), 1, Math.max(1, room));
+    const room = squadTarget(world, club.id) + 2 - squad(world, club.id).length;
+    // A club with no room takes no scholars this year. Forcing one on every
+    // club every season was what kept the small clubs above the squad they
+    // could afford, however hard the market tried to shift players out.
+    const intake = clamp(rng.int(2, 4) + (academy >= 5 ? 1 : 0) + (room > 4 ? 1 : 0), 0, Math.max(0, room));
     for (let i = 0; i < intake; i++) {
       // In the shape of a real squad: one keeper for every two forwards. An
       // even split floods the world with keepers who never get a game and
@@ -340,6 +343,7 @@ export function endSeason(ctx: Ctx): void {
 
   returnLoans(ctx);
   renewContracts(ctx, true);
+  releaseSurplus(ctx);
   for (const contract of Object.values(world.contracts)) {
     if (contract.endSeason <= world.season) {
       ctx.emit('CONTRACT_EXPIRED', { contractId: contract.id, playerId: contract.playerId, clubId: contract.clubId });

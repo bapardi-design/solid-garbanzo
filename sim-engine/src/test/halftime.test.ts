@@ -344,6 +344,33 @@ test('squads do not waste away over a career', async () => {
   assert.ok(smallest >= 11, `the smallest squad in the world is ${smallest}`);
 });
 
+test('squads are sized by division, not by one cap for everybody', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const { DEFAULT_CONFIG, tierOfClub, squad } = await import('../core/schema.js');
+  const { MAX_SQUAD } = await import('../engines/transfers.js');
+  const game = createGame({ ...DEFAULT_CONFIG, seed: 'depth', nations: ['ENG', 'ESP'] });
+  while (game.world.day < 3 * game.world.seasonLength + 180) step(game, 1);
+  const byTier = new Map<number, number[]>();
+  for (const club of Object.values(game.world.clubs)) {
+    const tier = tierOfClub(game.world, club.id) ?? 0;
+    if (!byTier.has(tier)) byTier.set(tier, []);
+    byTier.get(tier)!.push(squad(game.world, club.id).length);
+  }
+  const avg = (tier: number) => {
+    const a = byTier.get(tier) ?? [];
+    return a.reduce((x, y) => x + y, 0) / Math.max(1, a.length);
+  };
+  const shape = [1, 2, 3, 4].map((t) => `T${t} ${avg(t).toFixed(1)}`).join(' ');
+  // A top-flight club carries more players than a fourth-tier one because it
+  // can pay for them. Against one cap for everybody it was the other way
+  // round — the lower divisions filled to thirty and the top flight, whose
+  // starters are too dear to improve on cheaply, sat at twenty-one.
+  assert.ok(avg(1) - avg(4) >= 0.5, `squads by division: ${shape}`);
+  assert.ok(avg(2) - avg(4) >= 0.3, `squads by division: ${shape}`);
+  const biggest = Math.max(...Object.values(game.world.clubs).map((c) => squad(game.world, c.id).length));
+  assert.ok(biggest <= MAX_SQUAD, `someone is carrying ${biggest} players`);
+});
+
 test('the top flight does not rot away', async () => {
   const { createGame, step } = await import('../browser/engine.js');
   const { DEFAULT_CONFIG, tierOfClub, squad } = await import('../core/schema.js');

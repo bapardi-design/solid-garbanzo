@@ -43,7 +43,7 @@ Flags: `--seasons N`, `--seed S`, `--leagues L`, `--clubs C` (per league),
 | `src/matchday/xi.ts` | Starting XI selection per tactic/formation |
 | `src/matchday/match.ts` | Match engine with explainable expected-goal factors |
 | `src/engines/finance.ts` | Wages, gate, sponsorship, prize money, budgets |
-| `src/engines/transfers.ts` | Market listings, needs, signings, loans, renewals |
+| `src/engines/transfers.ts` | Market listings, needs, signings, loans, renewals, releases |
 | `src/engines/development.ts` | Growth toward potential, age decline, valuation |
 | `src/engines/morale.ts` | Post-match and weekly morale |
 | `src/engines/ai.ts` | Tactics, board reviews, sackings, appointments |
@@ -85,12 +85,16 @@ the substitutions and the half-time score are all recorded on the report.
 
 ### The drift that is still there
 
-Goals per match rise about 0.15 across six seasons — roughly 2.67 to 2.82 —
-and the cause is visible in the expected-goals inputs. Measured mid-season for
-the top flight, the goalkeeping line falls about eight points over six seasons
-and the defensive line about six, while the attack falls five and the midfield
-two. Defence is weighted towards the two lines that decay fastest, so the
-attack-to-defence ratio climbs from about 1.03 to 1.08, which is the drift.
+Goals per match rise between 0.03 and 0.10 across six seasons, against 0.10 to
+0.16 before squads were sized to what a club can afford — three seeds each,
+comparing the mean of seasons one and two with the mean of five and six,
+because season to season the number swings 0.05 on its own. On one of the
+three seeds the change bought nothing. The cause is visible in the
+expected-goals inputs: measured mid-season for the top flight, the goalkeeping
+line falls about eight points over six seasons and the defensive line about
+six, while the attack falls five and the midfield two. Defence is weighted
+towards the two lines that decay fastest, so the attack-to-defence ratio
+climbs from about 1.03 to 1.08, which is the drift.
 
 Underneath it is an order statistic: a side picks two forwards out of many and
 one keeper out of two or three, so the attack sits above whatever standard the
@@ -111,9 +115,24 @@ Measured and rejected, each across three seeds:
 
 Things that did help are in the history: intakes in the shape of a squad,
 intakes sized to the room a club has, academies pitched at the club's standard
-rather than its reputation, and good players refusing to drop a division.
-Together they took the drift from 0.25 to 0.15 a season-six match and stopped
-the top flight rotting from 65 to 59.
+rather than its reputation, good players refusing to drop a division, and
+squads sized by division. Together they took the drift from 0.25 to under 0.10
+a season-six match and stopped the top flight rotting from 65 to 59.
+
+## Squad size
+
+A club carries about `18 + reputation × 0.09` players, twenty at the least and
+twenty-eight at the most: a top-flight squad of around twenty-five against a
+fourth-tier one of around twenty-three. Clubs sign depth only up to that
+number, replace a position below the league standard up to two past it, and
+cover a genuine shortage up to three; at the end of the season anyone above it
+releases the bottom of the squad, paying off what is left of the contract, and
+takes no youth intake it has no room for. Loans respect the host's number too.
+
+Against a single cap for every club the order came out backwards — the fourth
+tier filled to thirty and the top flight sat at twenty-one, because a cheap
+starter is easy to improve on and a dear one is not, and because nothing ever
+forced a small club to let anyone go.
 
 ## Report
 
