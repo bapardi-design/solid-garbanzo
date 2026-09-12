@@ -287,8 +287,15 @@ export function renewContracts(ctx: Ctx, finalCall: boolean): void {
       const rank = rankAtClub(ctx, p);
       const keyPlayer = rank <= starterSlots(p.position) + 2;
       const prospect = comingGood(world, p, club.id);
-      // Squad depth: keep useful backups when the squad is not oversized.
-      const depth = rank <= starterSlots(p.position) + 4 && ownSquadSize(world, club.id) <= squadTarget(world, club.id) && p.age < 32 && rng.chance(0.6);
+      // Squad depth: a useful backup gets another year. This used to be gated
+      // on the squad being under its target, which after a summer's signings
+      // it never is, so at twenty-four — when prospect cover runs out —
+      // anybody not among the first eleven or two was let go. Between that
+      // and an academy intake nothing filtered, a footballer's best years
+      // emptied out of the world: the twenty-four to twenty-sevens fell from
+      // a third of every squad to a tenth in eight seasons. The released list
+      // is what handles an oversized squad, and it takes the worst first.
+      const depth = rank <= starterSlots(p.position) + 4 && p.age < 32 && rng.chance(0.8);
       const tooOld = p.age >= 34;
       if (tooOld || !(keyPlayer || prospect || depth)) continue;
       if (!finalCall && !rng.chance(0.5)) continue;

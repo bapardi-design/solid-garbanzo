@@ -371,7 +371,13 @@ export function endSeason(ctx: Ctx): void {
     const p = world.players[id];
     if (p.retired) continue;
     const unattachedFor = p.freeSince === null ? 0 : world.day - p.freeSince;
-    const freeAgentTooLong = p.clubId === null && (p.age >= 31 || unattachedFor >= world.seasonLength);
+    // A free agent nobody wants drops down the pyramid rather than out of
+    // football: two seasons unattached, not one. At one, a twenty-five year
+    // old released in the summer and not signed by the next was gone from the
+    // world for good, which is most of why a footballer's best years emptied
+    // out of it — the twenty-four to twenty-sevens fell from a third of every
+    // squad to a tenth in eight seasons.
+    const freeAgentTooLong = p.clubId === null && (p.age >= 31 || unattachedFor >= world.seasonLength * 2);
     // Goalkeepers last: they peak late and play on into their late thirties.
     const retireFrom = p.position === 'GK' ? 36 : 33;
     const retireChance = p.age >= retireFrom ? (p.age - retireFrom + 1) * 0.3 : 0;
