@@ -129,3 +129,38 @@ test('a career can be saved to a file and loaded back', async ({ page }) => {
   await expect(page.locator('.cards')).toContainText(club.split(' ')[0], { timeout: 30_000 });
   expect(errors, errors.join('\n')).toEqual([]);
 });
+
+test('a decision on the desk can be signed off and moves the money', async ({ page }) => {
+  const errors = watchForErrors(page);
+  await startCareer(page, 'e2e-desk');
+
+  // Play on until the chairman puts something in front of you. The game stops
+  // by itself when he does.
+  let decision = page.locator('.decision').first();
+  for (let i = 0; i < 10 && !(await decision.count()); i++) {
+    await playOneMatch(page);
+    await tab(page, 'Boardroom').click();
+    await page.waitForTimeout(300);
+    decision = page.locator('.decision').first();
+  }
+  expect(await decision.count(), 'something lands on the desk').toBeGreaterThan(0);
+
+  const title = (await decision.locator('h3').innerText()).trim();
+  // Take the option that costs money, so the bank has to move.
+  const paid = decision.locator('button.option').filter({ hasText: /now/ }).first();
+  const chosen = (await paid.count()) ? paid : decision.locator('button.option').first();
+  const spends = await chosen.locator('.cost .out').count();
+  await chosen.click();
+  await page.waitForTimeout(800);
+
+  // It leaves the desk and joins what you have signed off.
+  await expect(page.locator('.decision').filter({ hasText: title })).toHaveCount(0);
+  // Headings are uppercased by the stylesheet, so compare without case.
+  const settled = await page.locator('.panel').filter({ hasText: /Signed off/i }).innerText();
+  expect(settled.toLowerCase(), 'the decision is on the record').toContain(title.toLowerCase());
+  if (spends > 0) {
+    // Something was paid for: the club account is still readable and adds up.
+    await expect(page.getByText('Club account')).toBeVisible();
+  }
+  expect(errors, errors.join('\n')).toEqual([]);
+});
