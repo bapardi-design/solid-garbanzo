@@ -83,41 +83,66 @@ the second half on a new basis. A decision is a tactic switch, up to three
 substitutions, or both; illegal swaps are ignored. The second half's factors,
 the substitutions and the half-time score are all recorded on the report.
 
-### The drift that is still there
+### The drift, and where it came from
 
-Goals per match rise between 0.03 and 0.10 across six seasons, against 0.10 to
-0.16 before squads were sized to what a club can afford — three seeds each,
-comparing the mean of seasons one and two with the mean of five and six,
-because season to season the number swings 0.05 on its own. On one of the
-three seeds the change bought nothing. The cause is visible in the
-expected-goals inputs: measured mid-season for the top flight, the goalkeeping
-line falls about eight points over six seasons and the defensive line about
-six, while the attack falls five and the midfield two. Defence is weighted
-towards the two lines that decay fastest, so the attack-to-defence ratio
-climbs from about 1.03 to 1.08, which is the drift.
+Goals per match used to rise about 0.13 across six seasons. Over three seeds
+they now move between −0.03 and +0.03, comparing the mean of seasons one and
+two with the mean of five and six, which is smaller than the 0.05 a single
+season swings on its own.
 
-Underneath it is an order statistic: a side picks two forwards out of many and
-one keeper out of two or three, so the attack sits above whatever standard the
-world produces and the goalkeeping sits at it. As the hand-written starting
-squads age out, the goalkeeping line falls to the level the world can make and
-the attack does not.
+The chain took a while to find, because the visible symptom was the last link
+in it. Mid-season the top flight's goalkeeping line fell about eight points
+over six seasons and its defensive line six, while the attack fell five and
+the midfield two; defence leans on the two that decay fastest, so the
+attack-to-defence ratio climbed from 1.03 to 1.08 and the goals followed.
+Underneath that is an order statistic: a side picks two forwards out of many
+and one keeper out of two or three, so the attack sits above whatever standard
+the world produces and the goalkeeping sits at it. That explains which line
+falls furthest, but not why any of them fell.
 
-Measured and rejected, each across three seeds:
+Why they fell was a discarded number. The academy drew a boy to peak at a
+given standard, and the line that assigned his ceiling ignored it and guessed
+one off his age instead. A top-flight graduate was drawn to peak at 75 and
+given a ceiling of 64; a fourth-tier one was drawn at 41 and given 39. Eleven
+points a graduate against two, every intake, for as long as the world ran, is
+what rotted the top flight and closed the divisions on each other.
+
+Letting a graduate reach the peak he was drawn for needed three things with
+it, because on its own it traded one runaway for another:
+
+- **The academy aims at standing, not at the squad.** Aiming at the club's own
+  squad is a loop — good graduates raise the squad, which raises the aim —
+  and the fixed point of that loop is the same number for every club in the
+  world. Regressed over 276 generated clubs, a squad's strength runs
+  `0.86 × reputation + 10`, and reputation moves on results and money rather
+  than on who the academy turned out last summer.
+- **A boy who never plays barely improves.** Growth had a floor of 0.55 for a
+  player with no minutes, so the teenagers who fill half of every squad
+  reached their ceilings watching, and the standard of the whole world climbed
+  season after season. It is 0.15 now, and a player getting a full game
+  develops exactly as fast as he did.
+- **A prospect is one who will make this side.** Both the renewal and the
+  release rules asked only for room to improve, which every sixteen-year-old
+  has. Squads filled with boys and released the men. The bar is now his
+  club's own standard.
+
+Measured over eight seasons the top flight holds its level where it used to
+fall eleven points, and the gap between the top flight and the fourth tier
+holds inside three points of where it starts. The fourth tier still creeps up
+about a point a season, so the pyramid is not finished closing — it is just no
+longer doing it fast enough to spoil a career.
+
+Measured and rejected along the way, each across three seeds:
 
 - a rare high-potential roll on young players — no effect on the decay
-- a reputation ceiling on academy output — cost the top flight three points
-  and made the drift worse
+- a reputation ceiling on academy output, with the ceiling still discarded —
+  cost the top flight three points and made the drift worse
 - raising the growth floor for players who get no minutes — no effect, though
   72% of under-23 goalkeepers get none against 55% of outfielders
 - pitching each academy intake at the club's own line for that position rather
-  than its eleven-man average — neutral over three seeds (goalkeeping 71.6
-  against 72.6, ratio 1.077 against 1.080)
-
-Things that did help are in the history: intakes in the shape of a squad,
-intakes sized to the room a club has, academies pitched at the club's standard
-rather than its reputation, good players refusing to drop a division, and
-squads sized by division. Together they took the drift from 0.25 to under 0.10
-a season-six match and stopped the top flight rotting from 65 to 59.
+  than its eleven-man average — neutral over three seeds
+- letting the graduate reach his drawn peak on its own — the top flight stops
+  rotting and the fourth tier runs away instead, 42 to 58 in eight seasons
 
 ## Squad size
 

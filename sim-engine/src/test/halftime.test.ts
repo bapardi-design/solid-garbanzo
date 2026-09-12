@@ -376,25 +376,32 @@ test('the top flight does not rot away', async () => {
   const { DEFAULT_CONFIG, tierOfClub, squad } = await import('../core/schema.js');
   const { overall } = await import('../rating.js');
   const game = createGame({ ...DEFAULT_CONFIG, seed: 'standards', nations: ['ENG'] });
-  const level = () => {
+  const level = (tier: number) => {
     const players = Object.values(game.world.clubs)
-      .filter((c) => tierOfClub(game.world, c.id) === 1)
+      .filter((c) => tierOfClub(game.world, c.id) === tier)
       .flatMap((c) => squad(game.world, c.id));
     return players.reduce((s, p) => s + overall(p), 0) / Math.max(1, players.length);
   };
   const marks: number[] = [];
+  const gaps: number[] = [];
   for (let season = 0; season < 4; season++) {
     for (let d = 0; d < 400; d++) {
       step(game, 1);
       if (game.world.day % game.world.seasonLength === game.world.seasonLength - 1) break;
     }
-    marks.push(level());
+    marks.push(level(1));
+    gaps.push(level(1) - level(4));
     step(game, 1);
   }
   // Academy intakes have to reach the standard of the players they replace.
-  // Pinned to reputation they never did, and the division's best drained away
-  // a point a season until the football on show was two divisions worse.
-  assert.ok(marks[3] > marks[0] - 4, `top flight went ${marks.map((m) => m.toFixed(1)).join(' → ')}`);
+  // Given a ceiling guessed off their age instead of the peak they were drawn
+  // to reach, they never did, and the division's best drained away a point a
+  // season until the football on show was two divisions worse.
+  const shown = marks.map((m) => m.toFixed(1)).join(' → ');
+  assert.ok(marks[3] > marks[0] - 1.5, `top flight went ${shown}`);
+  // And the pyramid has to keep its shape: a world where everyone reaches
+  // their ceiling closes on itself instead, the bottom coming up to the top.
+  assert.ok(gaps[3] > gaps[0] - 3, `top flight over fourth tier went ${gaps.map((g) => g.toFixed(1)).join(' → ')}`);
 });
 
 test('the last promotion place is settled by a play-off', async () => {

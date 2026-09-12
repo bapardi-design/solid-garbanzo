@@ -2,7 +2,7 @@
 import type { Ctx } from '../core/context.js';
 import type { Player, Position, TransferRecord } from '../core/schema.js';
 import { POSITIONS, bottomTier, contractOf, isRealWorld, nextId, seasonDay, squad, tierOfClub } from '../core/schema.js';
-import { overall, wageDemand, weeklyWageBill } from '../rating.js';
+import { overall, squadStrength, wageDemand, weeklyWageBill } from '../rating.js';
 import { FORMATIONS } from '../matchday/xi.js';
 import { contractLengthFor, makeContract } from '../world/generate.js';
 import { aiBidsForHuman } from './bids.js';
@@ -96,6 +96,16 @@ export function buildMarket(ctx: Ctx): Listing[] {
     }
   }
   return listings;
+}
+
+/**
+ * Worth a place on what he might become. The bar is a place in this side one
+ * day, not merely room to improve: every teenager has room to improve, so a
+ * club that kept all of them filled the squad with boys and released the men,
+ * and the world's average player got younger and better every season.
+ */
+function comingGood(world: Ctx['world'], p: Player, clubId: string): boolean {
+  return p.age < 24 && p.potential >= overall(p) + 5 && p.potential >= squadStrength(world, clubId) - 5;
 }
 
 export interface Need { pos: Position; minRating: number; priority: number }
@@ -247,7 +257,7 @@ export function renewContracts(ctx: Ctx, finalCall: boolean): void {
       if (!c || c.endSeason !== world.season) continue;
       const rank = rankAtClub(ctx, p);
       const keyPlayer = rank <= starterSlots(p.position) + 2;
-      const prospect = p.age < 24 && p.potential >= overall(p) + 5;
+      const prospect = comingGood(world, p, club.id);
       // Squad depth: keep useful backups when the squad is not oversized.
       const depth = rank <= starterSlots(p.position) + 4 && players.length <= squadTarget(world, club.id) && p.age < 32 && rng.chance(0.6);
       const tooOld = p.age >= 34;
@@ -286,10 +296,10 @@ export function releaseSurplus(ctx: Ctx): void {
       // a player they would pick.
       if (!c || c.endSeason <= world.season) continue;
       if (rankAtClub(ctx, p) <= starterSlots(p.position) + 1) continue;
-      // Worst first puts the sixteen-year-olds at the head of the queue, and
-      // a club that released its academy every summer would have no reason to
+      // Worst first puts the sixteen-year-olds at the head of the queue, and a
+      // club that released its academy every summer would have no reason to
       // run one.
-      if (p.age < 24 && p.potential >= overall(p) + 5) continue;
+      if (comingGood(world, p, clubId)) continue;
       // Leave a spare in every position: released to the bone, clubs spent the
       // summer signing emergency cover and ended up over their means again.
       if (ranked(squad(world, clubId), p.position).length <= MIN_PER_POSITION[p.position] + 1) continue;
