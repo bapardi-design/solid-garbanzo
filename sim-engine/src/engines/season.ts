@@ -1,6 +1,6 @@
 /** Season lifecycle: per-nation competitions, the continental cup, and end-of-season rollover. */
 import type { Ctx } from '../core/context.js';
-import type { CompetitionCup, CompetitionLeague, FinanceEntry, Nation, SeasonSummary } from '../core/index.js';
+import type { CompetitionCup, CompetitionLeague, FinanceEntry, Fixture, Nation, SeasonSummary } from '../core/index.js';
 import { isRealWorld, squad, tierCode, tierFromLeagueId } from '../core/schema.js';
 import { clamp } from '../core/rng.js';
 import { continentalEntryFee, cupPrize, groupWinBonus, prizeMoney, setBudgets } from './finance.js';
@@ -9,6 +9,7 @@ import { chooseTactics, expireManagerContracts, fillManagerVacancies, boardRevie
 import { renewContracts, returnLoans } from './transfers.js';
 import { revalue } from './development.js';
 import { cupRounds, scheduleCupRound, scheduleGroups, scheduleLeague } from '../matchday/fixtures.js';
+import { penaltyShootout } from '../matchday/match.js';
 import { computeGroupTable, computeTable } from '../matchday/table.js';
 import { contractLengthFor, generatePlayer, makeContract } from '../world/generate.js';
 import { squadStrength, wageDemand } from '../rating.js';
@@ -240,10 +241,31 @@ export function advanceCups(ctx: Ctx): void {
     if (roundFixtures.length === 0 || roundFixtures.some((f) => !f.played)) continue;
     const played = new Set<string>();
     const winners: string[] = [];
-    for (const f of roundFixtures) {
-      played.add(f.homeClubId);
-      played.add(f.awayClubId);
-      if (f.winnerId) winners.push(f.winnerId);
+    const twoLegged = comp.cupKind === 'playoff' && comp.round < comp.totalRounds;
+    if (twoLegged) {
+      // A semi-final is one tie over two legs: add the goals up, and if they
+      // are level after the second there are penalties at the end of it.
+      const ties = new Map<string, Fixture[]>();
+      for (const f of roundFixtures) {
+        const key = [f.homeClubId, f.awayClubId].sort().join('|');
+        (ties.get(key) ?? ties.set(key, []).get(key)!).push(f);
+        played.add(f.homeClubId);
+        played.add(f.awayClubId);
+      }
+      for (const [key, legs] of [...ties.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+        const [first, second] = key.split('|');
+        const goalsFor = (club: string) => legs.reduce((n, f) => n + (f.homeClubId === club ? f.homeGoals : f.awayGoals), 0);
+        const a = goalsFor(first), b = goalsFor(second);
+        if (a !== b) { winners.push(a > b ? first : second); continue; }
+        const shootout = penaltyShootout(ctx.rng);
+        winners.push(shootout.home > shootout.away ? first : second);
+      }
+    } else {
+      for (const f of roundFixtures) {
+        played.add(f.homeClubId);
+        played.add(f.awayClubId);
+        if (f.winnerId) winners.push(f.winnerId);
+      }
     }
     const byes = comp.alive.filter((id) => !played.has(id));
     const alive = [...byes, ...winners].sort();

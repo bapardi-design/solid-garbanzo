@@ -335,8 +335,13 @@ test('squads do not waste away over a career', async () => {
   }
   // Youth intakes have to replace what age takes out. When they did not, clubs
   // lost a player a season until they were naming sixteen-man matchday squads.
-  assert.ok(sizes[3] > sizes[0] - 3, `squads went ${sizes.map((s) => s.toFixed(1)).join(' → ')}`);
-  assert.ok(sizes[3] > 18, `squads ended at ${sizes[3].toFixed(1)}`);
+  //
+  // This asserts the level rather than the fall: measured across three seeds
+  // the fall is 2.8 to 3.4 either side of any change, so a threshold on it
+  // passes or fails on the luck of the draw rather than on anything real.
+  assert.ok(sizes[3] >= 19, `squads went ${sizes.map((s) => s.toFixed(1)).join(' → ')}`);
+  const smallest = Math.min(...Object.values(game.world.clubs).map((c) => squad(game.world, c.id).length));
+  assert.ok(smallest >= 11, `the smallest squad in the world is ${smallest}`);
 });
 
 test('the top flight does not rot away', async () => {
@@ -390,10 +395,21 @@ test('the last promotion place is settled by a play-off', async () => {
   assert.ok(mine.winnerId, 'it produces a winner');
 
   const fixtures = (game.world.idx.fixturesByCompetition[mine.id] ?? []).map((id) => game.world.fixtures[id]);
-  assert.equal(fixtures.length, 3, 'two semi-finals and a final');
+  assert.equal(fixtures.length, 5, 'two semi-finals over two legs each, and a final');
+  const final = fixtures.filter((f) => f.round === mine.totalRounds);
+  const legs = fixtures.filter((f) => f.round < mine.totalRounds);
+  assert.equal(final.length, 1, 'one final');
+  assert.equal(legs.length, 4, 'four legs');
   for (const f of fixtures) {
-    assert.ok(f.played && f.winnerId, 'a play-off tie cannot be drawn');
+    assert.ok(f.played, 'all of them are played');
     assert.ok(f.day - game.world.seasonStartDay > 348, 'they come after the league is over');
+  }
+  // A leg can end level; the final cannot.
+  assert.ok(final[0].winnerId, 'the final produces a winner on the day');
+  // Each tie is played home and away.
+  for (const tie of [legs.slice(0, 2), legs.slice(2)]) {
+    const grounds = new Set(tie.map((f) => f.homeClubId));
+    assert.equal(grounds.size, tie.length, 'the legs are at different grounds');
   }
 
   const third = table[championship.promote - 1].clubId;

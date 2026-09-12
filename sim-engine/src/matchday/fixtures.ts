@@ -56,6 +56,8 @@ export const CONTINENTAL_KNOCKOUT_GAP = 4;
 /** Play-off days, counted from the start of the season. */
 const PLAYOFF_SEMI_DAY = 353;
 const PLAYOFF_GAP = 6;
+/** Days between the two legs of a semi-final. */
+const PLAYOFF_LEG_GAP = 3;
 
 export function leagueRoundDay(world: Ctx['world'], round: number): number {
   return world.seasonStartDay + (FIRST_LEAGUE_WEEK + round - 1) * 7 + LEAGUE_MATCH_WEEKDAY;
@@ -159,9 +161,19 @@ export function scheduleCupRound(ctx: Ctx, comp: CompetitionCup): { fixtures: Fi
   const day = cupDay(world, comp, comp.round);
   const fixtures: Fixture[] = [];
   if (seeded) {
+    // The semi-finals are two legs, and neither can be settled on its own: a
+    // leg that ends level stays level, and the tie is decided on aggregate.
+    // The club that finished higher is at home for the second, as it should
+    // be for finishing higher.
+    const twoLegs = comp.round < comp.totalRounds;
     for (let i = 0; i < Math.floor(playing.length / 2); i++) {
-      const home = playing[i], away = playing[playing.length - 1 - i];
-      fixtures.push(blankFixture(world, comp.id, comp.season, comp.round, day, home, away, true, null));
+      const higher = playing[i], lower = playing[playing.length - 1 - i];
+      if (twoLegs) {
+        fixtures.push(blankFixture(world, comp.id, comp.season, comp.round, day, lower, higher, false, null));
+        fixtures.push(blankFixture(world, comp.id, comp.season, comp.round, day + PLAYOFF_LEG_GAP, higher, lower, false, null));
+      } else {
+        fixtures.push(blankFixture(world, comp.id, comp.season, comp.round, day, higher, lower, true, null));
+      }
     }
     return { fixtures, byes };
   }
