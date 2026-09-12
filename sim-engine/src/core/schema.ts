@@ -67,6 +67,11 @@ export interface Player {
   retired: boolean;
   /** Day the player last started a match; -1 if never. */
   lastStartDay: number;
+  /**
+   * A promise of football by this day, made to a player who asked. Cleared
+   * when he starts a match, or when the day passes and he does not.
+   */
+  promisedGamesBy: number | null;
   /** Day the player became a free agent; null while under contract. */
   freeSince: number | null;
   /** Asking price when the owning club has listed the player for sale; null otherwise. */

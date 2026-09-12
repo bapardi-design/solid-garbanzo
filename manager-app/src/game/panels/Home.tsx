@@ -9,8 +9,8 @@ function moodPill(mood: BoardStatus['mood']) {
   return <span className={`pill ${cls}`}>{mood}</span>;
 }
 
-export function HomePanel({ game, clubId, board, nextFixture, lastFixture, onPlayer, onTab }: { game: GameT; clubId: string; board: BoardStatus | null; nextFixture?: Fixture; lastFixture: Fixture | null; onPlayer: (id: string) => void; onTab: (tab: string) => void }) {
-  const { world } = game;
+export function HomePanel({ game, clubId, board, nextFixture, lastFixture, onPlayer, onTab, onAction }: { game: GameT; clubId: string; board: BoardStatus | null; nextFixture?: Fixture; lastFixture: Fixture | null; onPlayer: (id: string) => void; onTab: (tab: string) => void; onAction: (r: { ok: boolean; message: string }) => void }) {
+  const { world, ctx } = game;
   const club = world.clubs[clubId];
   const cur = Engine.currencyFor(world, clubId);
   const league = Engine.leagueOf(world, clubId);
@@ -27,6 +27,7 @@ export function HomePanel({ game, clubId, board, nextFixture, lastFixture, onPla
   const oppLeague = opp ? Engine.leagueOf(world, opp.id) : null;
   const oppTable = oppLeague ? Engine.computeTable(world, oppLeague) : [];
   const windowOpen = Engine.inTransferWindow(world);
+  const concerns = Engine.concernsForHuman(ctx);
   return (
     <div className="grid-2">
       <div className="stack">
@@ -58,6 +59,30 @@ export function HomePanel({ game, clubId, board, nextFixture, lastFixture, onPla
           <section className="panel">
             <header><h3>Last result</h3><button className="btn small" onClick={() => onTab('fixtures')}>All results</button></header>
             <div className="body"><MatchReportView game={game} fixture={lastFixture} open onPlayer={onPlayer} /></div>
+          </section>
+        ) : null}
+        {concerns.length ? (
+          <section className="panel">
+            <header><h3>Dressing room</h3><span className="muted">{concerns.length} want{concerns.length === 1 ? 's' : ''} a word</span></header>
+            <ul className="room">
+              {concerns.map((c) => {
+                const p = world.players[c.playerId];
+                if (!p) return null;
+                return (
+                  <li key={c.playerId}>
+                    <span className="tag">{p.position}</span>
+                    <span className="who">
+                      <b onClick={() => onPlayer(p.id)}>{p.name}</b>
+                      <span className="muted small">{c.note}</span>
+                    </span>
+                    {c.kind === 'promise_due' ? <span className="pill warn">waiting</span> : (
+                      <button className="btn small" onClick={() => onAction(Engine.promiseGames(ctx, p.id))}>Promise him games</button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="muted small">A promise lifts him now and costs more than it gained if he still is not picked within four weeks.</p>
           </section>
         ) : null}
         {league ? (

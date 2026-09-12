@@ -246,6 +246,22 @@ Measured and rejected along the way, each across three seeds:
 - letting the graduate reach his drawn peak on its own — the top flight stops
   rotting and the fourth tier runs away instead, 42 to 58 in eight seasons
 
+## The dressing room
+
+Morale has always had teeth — it moves expected goals by up to 8%, sets how
+willingly a player renews and what he asks for — and the engine has always
+known why it fell: he has not started in four weeks, or his contract is
+running down. The manager saw a number and no reason, and had nothing to say
+back.
+
+`squadConcerns` names what each unhappy player is unhappy about. The one
+answer available is a promise of football: it lifts him eight now and costs
+twelve if the four weeks pass without a start, so promising what cannot be
+given is worse than saying nothing, and a player already waiting cannot be
+promised again. Never having started counts as the strongest form of being
+left out rather than the weakest — a last-start day of −1 must not read as
+"started today".
+
 ## Careers
 
 A player's record used to be two running totals, so the season a squad player

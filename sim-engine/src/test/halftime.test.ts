@@ -374,6 +374,43 @@ test('squads are sized by division, not by one cap for everybody', async () => {
   assert.ok(biggest <= MAX_SQUAD, `someone is carrying ${biggest} players`);
 });
 
+test('a player who is left out says so, and a promise of football costs something', async () => {
+  // takeOverClub and the rest reach the app through the default export.
+  const { createGame, step } = await import('../browser/engine.js');
+  const { takeOverClub, concernsForHuman, promiseGames } = await import('../actions.js');
+  const { DEFAULT_CONFIG, tierOfClub } = await import('../core/schema.js');
+  const game = createGame({ ...DEFAULT_CONFIG, seed: 'dressing', nations: ['ENG'] });
+  step(game, 300);
+  // The strongest club in the top flight: the board will not sack the manager
+  // in the middle of the experiment.
+  const club = Object.values(game.world.clubs)
+    .filter((c) => tierOfClub(game.world, c.id) === 1)
+    .sort((a, b) => b.reputation - a.reputation)[0];
+  takeOverClub(game.ctx, club.id, 'Alex Vale');
+  step(game, 40);
+
+  const concerns = concernsForHuman(game.ctx);
+  assert.ok(concerns.length > 0, 'nobody in the squad had anything to say');
+  const left = concerns.find((c) => c.kind === 'frozen_out');
+  assert.ok(left, `no one is frozen out: ${concerns.map((c) => c.kind).join(', ')}`);
+
+  const p = game.world.players[left.playerId];
+  const before = p.morale;
+  assert.ok(promiseGames(game.ctx, p.id).ok);
+  assert.equal(p.morale, before + 8);
+  assert.equal(p.promisedGamesBy, game.world.day + 28);
+  // He is waiting on an answer he already has.
+  assert.equal(promiseGames(game.ctx, p.id).ok, false);
+  const waiting = concernsForHuman(game.ctx).find((c) => c.playerId === p.id);
+  assert.equal(waiting?.kind, 'promise_due');
+
+  // Left out anyway. A day at a time: step() returns early at a season break.
+  const promised = p.morale;
+  for (let i = 0; i < 40 && p.promisedGamesBy !== null; i++) step(game, 1);
+  assert.equal(p.promisedGamesBy, null, 'the promise never came due');
+  assert.ok(p.morale < promised, `morale went ${promised} to ${p.morale} after a promise was broken`);
+});
+
 test('a career is kept season by season', async () => {
   const { createGame, step } = await import('../browser/engine.js');
   const { DEFAULT_CONFIG } = await import('../core/schema.js');

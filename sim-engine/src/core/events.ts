@@ -59,6 +59,10 @@ export interface EventPayloads {
   PLAYER_LISTED: { playerId: string; askingPrice: number };
   PLAYER_UNLISTED: { playerId: string };
   PLAYER_RELEASED: { playerId: string; clubId: string; payoff: number };
+  /** The manager promises a player football by a given day. */
+  GAMES_PROMISED: { playerId: string; byDay: number; morale: number };
+  /** Promises that came due: kept ones and broken ones, with what each cost. */
+  PROMISES_SETTLED: { playerIds: string[]; deltas: Record<string, number> };
   CAREER_ENDED: { clubId: string; reason: string };
   MANAGER_MOVED: { managerId: string; fromClubId: string | null; toClubId: string; contractEndSeason: number };
   NEWS_PUBLISHED: { items: NewsItem[] };

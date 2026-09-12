@@ -483,6 +483,21 @@ export function reduce(w: World, e: Event): void {
       w.players[e.payload.playerId].listedAt = null;
       break;
     }
+    case 'GAMES_PROMISED': {
+      const p = w.players[e.payload.playerId];
+      p.promisedGamesBy = e.payload.byDay;
+      p.morale = clamp(p.morale + e.payload.morale, 0, 100);
+      break;
+    }
+    case 'PROMISES_SETTLED': {
+      for (const id of e.payload.playerIds) {
+        const p = w.players[id];
+        if (!p) continue;
+        p.promisedGamesBy = null;
+        p.morale = clamp(p.morale + (e.payload.deltas[id] ?? 0), 0, 100);
+      }
+      break;
+    }
     case 'PLAYER_RELEASED': {
       const { playerId, clubId, payoff } = e.payload;
       const cid = w.idx.contractByPlayer[playerId];

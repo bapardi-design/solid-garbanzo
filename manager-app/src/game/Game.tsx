@@ -212,7 +212,7 @@ export function Game({ record, game }: { record: CareerRecord; game: GameT }) {
       <div className="tabs" role="tablist">
         {TABS.map((t) => <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}>{t.label}{t.id === 'transfers' && bids ? <span className="badge">{bids}</span> : null}{t.id === 'boardroom' && desk ? <span className="badge">{desk}</span> : null}</button>)}
       </div>
-      {tab === 'home' ? <HomePanel game={gameRef.current} clubId={clubId} board={board} nextFixture={nextFixture} lastFixture={lastFixture} onPlayer={onPlayer} onTab={goTab} /> : null}
+      {tab === 'home' ? <HomePanel game={gameRef.current} clubId={clubId} board={board} nextFixture={nextFixture} lastFixture={lastFixture} onPlayer={onPlayer} onTab={goTab} onAction={afterAction} /> : null}
       {tab === 'news' ? <NewsPanel game={gameRef.current} clubId={clubId} onPlayer={onPlayer} /> : null}
       {tab === 'squad' ? <SquadPanel game={gameRef.current} clubId={clubId} onPlayer={onPlayer} /> : null}
       {tab === 'transfers' ? <TransfersPanel game={gameRef.current} clubId={clubId} onAction={afterAction} onPlayer={onPlayer} /> : null}
