@@ -87,22 +87,37 @@ export function cupPrize(world: World, comp: CompetitionCup, clubId: string, rou
 export function continentalEntryFee(world: World): number { return isRealWorld(world) ? 9000 : 800; }
 export function groupWinBonus(world: World): number { return isRealWorld(world) ? 2000 : 100; }
 
+function leagueShape(world: World, clubId: string): { tier: number; n: number } {
+  const league = world.competitions[world.clubs[clubId].leagueId];
+  return league && league.kind === 'league'
+    ? { tier: league.tier, n: league.clubIds.length }
+    : { tier: 1, n: 16 };
+}
+
+/** Gate money a club can expect across a season, in k. */
+export function projectedGate(world: World, clubId: string): number {
+  const club = world.clubs[clubId];
+  const { tier, n } = leagueShape(world, clubId);
+  const real = isRealWorld(world);
+  const price = real ? REAL_TICKET_BY_TIER[Math.min(tier, REAL_TICKET_BY_TIER.length) - 1] : TICKET_PRICE_K;
+  return club.stadiumCapacity * (real ? 0.85 : 0.7) * price * (n - 1);
+}
+
+/** League prize money a club can expect across a season, in k. */
+export function projectedPrize(world: World, clubId: string): number {
+  const { tier, n } = leagueShape(world, clubId);
+  if (!isRealWorld(world)) return tier === 1 ? 7500 : tier === 2 ? 2200 : 700;
+  const spec = prizeSpec(world.clubs[clubId].nationId, tier);
+  return spec.base + spec.perPlace * (n / 2);
+}
+
 /** Projected season income used to size wage and transfer budgets. */
 export function projectedSeasonIncome(ctx: Ctx, clubId: string): number {
   const { world } = ctx;
   const club = world.clubs[clubId];
-  const league = world.competitions[club.leagueId];
-  const tier = league && league.kind === 'league' ? league.tier : 1;
-  const n = league && league.kind === 'league' ? league.clubIds.length : 16;
-  const homeGames = n - 1;
-  const real = isRealWorld(world);
-  const price = real ? REAL_TICKET_BY_TIER[Math.min(tier, REAL_TICKET_BY_TIER.length) - 1] : TICKET_PRICE_K;
-  const gate = club.stadiumCapacity * (real ? 0.85 : 0.7) * price * homeGames;
   const sponsor = weeklyCommercial(world, club.reputation) * 52;
-  const spec = prizeSpec(club.nationId, tier);
-  const prize = real ? spec.base + spec.perPlace * (n / 2) : tier === 1 ? 7500 : tier === 2 ? 2200 : 700;
   const operations = weeklyOperations(world, club.reputation) * 52;
-  return gate + sponsor + prize - operations;
+  return projectedGate(world, clubId) + sponsor + projectedPrize(world, clubId) - operations;
 }
 
 export function setBudgets(ctx: Ctx): void {

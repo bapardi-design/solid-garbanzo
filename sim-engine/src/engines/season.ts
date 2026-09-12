@@ -11,7 +11,7 @@ import { revalue } from './development.js';
 import { cupRounds, scheduleCupRound, scheduleGroups, scheduleLeague } from '../matchday/fixtures.js';
 import { computeGroupTable, computeTable } from '../matchday/table.js';
 import { contractLengthFor, generatePlayer, makeContract } from '../world/generate.js';
-import { wageDemand } from '../rating.js';
+import { squadStrength, wageDemand } from '../rating.js';
 import type { Position } from '../core/schema.js';
 import { CONTINENTAL_CUP_NAME, NATIONS } from '../world/nations.js';
 import { giveAwards } from './press.js';
@@ -38,6 +38,7 @@ function knockoutCup(id: string, cupKind: CompetitionCup['cupKind'], name: strin
     groups: null, groupRounds: 0, stage: 'knockout', complete: false, winnerId: null,
   };
 }
+
 
 export function startSeason(ctx: Ctx, season: number): void {
   const { world, rng } = ctx;
@@ -101,9 +102,17 @@ export function startSeason(ctx: Ctx, season: number): void {
       // even split floods the world with keepers who never get a game and
       // starves it of forwards.
       const pos = rng.weighted(['GK', 'DF', 'MF', 'FW'] as const satisfies readonly Position[], [3, 8, 8, 6]);
-      const player = generatePlayer(ctx, club.id, pos, club.reputation * 0.8 + academy, rng.int(16, 18), club.nationId);
+      // An academy turns out players for the side they are trying to get into,
+      // so the standard is the club's own, a shade under it, with the spread
+      // giving the occasional one better than anyone there.
+      const target = squadStrength(world, club.id) * 0.95 + academy;
+      const player = generatePlayer(ctx, club.id, pos, club.reputation * 0.8 + academy, rng.int(16, 18), club.nationId, target);
       ctx.emit('PLAYER_CREATED', { player });
-      const contract = makeContract(ctx, player.id, club.id, wageDemand(player, real), contractLengthFor(player.age, rng));
+      // Youth terms: a sixteen-year-old signs for a fraction of what he would
+      // be worth in the first team, which is how a club can afford an intake
+      // at all now that intakes are as good as the side they join.
+      const youthWage = Math.max(1, Math.round(wageDemand(player, real) * 0.25));
+      const contract = makeContract(ctx, player.id, club.id, youthWage, contractLengthFor(player.age, rng));
       ctx.emit('CONTRACT_SIGNED', { contract, record: null });
     }
   }
