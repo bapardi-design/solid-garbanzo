@@ -7,7 +7,7 @@
 import type { Ctx } from '../core/context.js';
 import type { PlayerMatchStats } from '../core/events.js';
 import { clamp } from '../core/rng.js';
-import type { CardEvent, Fixture, GoalEvent, GoalFactor, HalfTimeState, MatchReport, Player, Position, Tactic, World } from '../core/schema.js';
+import type { CardEvent, Fixture, GoalEvent, GoalFactor, HalfTimeState, MatchReport, MatchStats, Player, Position, Tactic, World } from '../core/schema.js';
 import { effectiveRating } from '../rating.js';
 import { attendanceFactor, medicalFactor, recoveryFactor } from '../engines/boardroom.js';
 import { FORMATIONS, selectXI, type Selection } from './xi.js';
@@ -268,6 +268,27 @@ export function penaltyShootout(rng: Ctx['rng']): { home: number; away: number }
   return { home: h, away: a };
 }
 
+/**
+ * The numbers a match report carries. They are read off what the match already
+ * did — expected goals, the goals themselves and the midfields — rather than
+ * drawn, so they cost no randomness and always agree with the scoreline.
+ */
+function matchStats(world: World, s: Settlement, homeGoals: number, awayGoals: number): MatchStats {
+  const midHome = teamLines(world, s.homeSel1).mid;
+  const midAway = teamLines(world, s.awaySel1).mid;
+  const tilt = (midHome - midAway) * 0.9;
+  const home = Math.round(clamp(50 + tilt + (s.xgHome.lambda - s.xgAway.lambda) * 3, 30, 70));
+  const shotsFor = (lambda: number, scored: number) => Math.max(scored, Math.round(lambda * 7.5 + scored * 2.5));
+  const onTargetFor = (shots: number, scored: number) => Math.max(scored, Math.min(shots, Math.round(shots * 0.3 + scored * 0.8)));
+  const hs = shotsFor(s.xgHome.lambda, homeGoals), as = shotsFor(s.xgAway.lambda, awayGoals);
+  return {
+    possession: { home, away: 100 - home },
+    shots: { home: hs, away: as },
+    onTarget: { home: onTargetFor(hs, homeGoals), away: onTargetFor(as, awayGoals) },
+    corners: { home: Math.round(hs * 0.4), away: Math.round(as * 0.4) },
+  };
+}
+
 /** Penalties, player stats, injuries and the report, once both halves are played. */
 function settle(ctx: Ctx, s: Settlement): MatchOutcome {
   const { world, rng } = ctx;
@@ -317,6 +338,13 @@ function settle(ctx: Ctx, s: Settlement): MatchOutcome {
   tally(s.homeSel1, s.homeSel2, homeGoals, awayGoals);
   tally(s.awaySel1, s.awaySel2, awayGoals, homeGoals);
 
+  // Best on the pitch: the highest rating of the day, steadied by a tie-break
+  // on id so the same match always names the same man.
+  let motmId: string | null = null;
+  for (const id of Object.keys(playerStats).sort()) {
+    if (!motmId || playerStats[id].rating > playerStats[motmId].rating) motmId = id;
+  }
+
   const report: MatchReport = {
     homeXI: s.homeSel1.playerIds,
     awayXI: s.awaySel1.playerIds,
@@ -333,6 +361,8 @@ function settle(ctx: Ctx, s: Settlement): MatchOutcome {
     halfTimeScore: s.htScore,
     subs: s.subs,
     tacticChange: s.tacticChange,
+    stats: matchStats(world, s, homeGoals, awayGoals),
+    motmId,
   };
   return { homeGoals, awayGoals, winnerId, report, playerStats, injuries };
 }

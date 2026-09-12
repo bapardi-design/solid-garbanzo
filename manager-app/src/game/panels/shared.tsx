@@ -16,6 +16,22 @@ export function Ovr({ v }: { v: number }) {
   return <span className={`ovr ${cls}`}>{n}</span>;
 }
 
+/** Share of a pair, for the bar behind a stat row. */
+const pct = (home: number, away: number): number => (home + away === 0 ? 50 : Math.round((home / (home + away)) * 100));
+
+function StatRow({ label, home, away, bar }: { label: string; home: number | string; away: number | string; bar: number }) {
+  return (
+    <div className="statrow">
+      <b>{home}</b>
+      <span className="mid">
+        <i>{label}</i>
+        <span className="track"><em style={{ width: `${bar}%` }} /></span>
+      </span>
+      <b>{away}</b>
+    </div>
+  );
+}
+
 export function MatchReportView({ game, fixture, open, onToggle, onPlayer }: { game: GameT; fixture: Fixture; open: boolean; onToggle?: () => void; onPlayer?: (id: string) => void }) {
   const w = game.world;
   const r = fixture.report;
@@ -29,6 +45,17 @@ export function MatchReportView({ game, fixture, open, onToggle, onPlayer }: { g
       {open ? (
         <>
           {r.goals.length ? <ol className="goals">{r.goals.map((g, i) => <li key={i}><span className="min">{g.minute}&apos;</span><span className="who">{w.clubs[g.clubId].short}</span><a onClick={() => onPlayer?.(g.scorerId)}>{w.players[g.scorerId]?.name ?? 'unknown'}</a>{g.assistId ? <span className="muted"> (assist {w.players[g.assistId]?.name})</span> : null}</li>)}</ol> : <p className="muted">Goalless.</p>}
+          {r.stats ? (
+            <div className="matchstats">
+              <StatRow label="Possession" home={`${r.stats.possession.home}%`} away={`${r.stats.possession.away}%`} bar={r.stats.possession.home} />
+              <StatRow label="Shots" home={r.stats.shots.home} away={r.stats.shots.away} bar={pct(r.stats.shots.home, r.stats.shots.away)} />
+              <StatRow label="On target" home={r.stats.onTarget.home} away={r.stats.onTarget.away} bar={pct(r.stats.onTarget.home, r.stats.onTarget.away)} />
+              <StatRow label="Corners" home={r.stats.corners.home} away={r.stats.corners.away} bar={pct(r.stats.corners.home, r.stats.corners.away)} />
+              {r.motmId && w.players[r.motmId] ? (
+                <p className="motm">Man of the match <a onClick={() => onPlayer?.(r.motmId!)}>{w.players[r.motmId].name}</a></p>
+              ) : null}
+            </div>
+          ) : null}
           {r.cards.length ? (
             <ul className="cards-list">
               {r.cards.map((c, i) => (

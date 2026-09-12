@@ -74,10 +74,21 @@ function migrate(world: World): void {
     if (typeof st.reds !== 'number') st.reds = 0;
   }
   for (const f of Object.values(world.fixtures)) {
-    const r = f.report as (MatchReport & { subs?: MatchReport['subs']; second?: MatchReport['second']; tacticChange?: MatchReport['tacticChange']; halfTimeScore?: MatchReport['halfTimeScore']; cards?: MatchReport['cards']; derby?: boolean }) | null;
+    const r = f.report as (MatchReport & { subs?: MatchReport['subs']; second?: MatchReport['second']; tacticChange?: MatchReport['tacticChange']; halfTimeScore?: MatchReport['halfTimeScore']; cards?: MatchReport['cards']; derby?: boolean; stats?: MatchReport['stats']; motmId?: MatchReport['motmId'] }) | null;
     if (!r) continue;
     if (!r.subs) r.subs = [];
     if (!r.cards) r.cards = [];
+    if (!r.stats) {
+      const shots = (lambda: number, scored: number) => Math.max(scored, Math.round(lambda * 7.5 + scored * 2.5));
+      const hs = shots(r.lambda.home, f.homeGoals), as = shots(r.lambda.away, f.awayGoals);
+      r.stats = {
+        possession: { home: 50, away: 50 },
+        shots: { home: hs, away: as },
+        onTarget: { home: Math.max(f.homeGoals, Math.round(hs * 0.3)), away: Math.max(f.awayGoals, Math.round(as * 0.3)) },
+        corners: { home: Math.round(hs * 0.4), away: Math.round(as * 0.4) },
+      };
+    }
+    if (r.motmId === undefined) r.motmId = null;
     if (typeof r.derby !== 'boolean') r.derby = false;
     if (r.second === undefined) r.second = null;
     if (r.tacticChange === undefined) r.tacticChange = null;
