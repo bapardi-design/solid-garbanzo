@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import Engine from 'sim-engine';
 import { money, wage } from '../format';
 import { Flag, Ovr, POS_ORDER, type GameT } from './shared';
@@ -11,7 +11,11 @@ export function SquadPanel({ game, clubId, onPlayer }: { game: GameT; clubId: st
   const [sort, setSort] = useState<Sort>('pos');
   const cur = Engine.currencyFor(world, clubId);
   const club = world.clubs[clubId];
-  const players = useMemo(() => {
+  // Not memoised on `world`: the engine mutates the world in place, so the
+  // object never changes identity and a memo keyed on it went stale the
+  // moment anybody was sold, released or sent out on loan. Sorting twenty-odd
+  // players costs nothing.
+  const players = (() => {
     const list = Engine.squad(world, clubId).slice();
     const c = (id: string) => Engine.contractOf(world, id);
     list.sort((a, b) => {
@@ -27,8 +31,11 @@ export function SquadPanel({ game, clubId, onPlayer }: { game: GameT; clubId: st
       }
     });
     return list;
-  }, [world, clubId, sort, world.day]); // eslint-disable-line react-hooks/exhaustive-deps
+  })();
   const xi = new Set(Engine.selectXI(world, clubId, club.tactic).playerIds);
+  // Loaned-out players are in someone else's squad, so they have to be looked
+  // up through the club that is still paying most of their wages.
+  const out = (world.idx.loanedOutBy[clubId] ?? []).map((id) => world.players[id]).filter(Boolean);
   const expiring = players.filter((p) => { const c = Engine.contractOf(world, p.id); return c && c.endSeason === world.season; }).length;
   const bill = Engine.weeklyWageBill(world, clubId);
   const avgAge = players.reduce((s, p) => s + p.age, 0) / Math.max(1, players.length);
@@ -82,6 +89,20 @@ export function SquadPanel({ game, clubId, onPlayer }: { game: GameT; clubId: st
           </tbody>
         </table>
       </div>
+      {out.length ? (
+        <div className="body">
+          <p className="side">Out on loan</p>
+          <ul className="settled">
+            {out.map((p) => (
+              <li key={p.id} onClick={() => onPlayer(p.id)} style={{ cursor: 'pointer' }}>
+                <span className="tag">{p.position}</span>
+                <b>{p.name}</b>
+                <span className="muted">at {world.clubs[p.loan!.toClubId]?.name ?? 'another club'} · {p.stats.apps} app{p.stats.apps === 1 ? '' : 's'} · back at the end of the season</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </section>
   );
 }

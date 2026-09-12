@@ -6,7 +6,7 @@ import { clamp } from '../core/rng.js';
 import { continentalEntryFee, cupPrize, groupWinBonus, prizeMoney, setBudgets } from './finance.js';
 import { academyBonus } from './boardroom.js';
 import { chooseTactics, expireManagerContracts, fillManagerVacancies, boardReview } from './ai.js';
-import { releaseSurplus, renewContracts, returnLoans, squadTarget } from './transfers.js';
+import { ownSquadSize, releaseSurplus, renewContracts, returnLoans, squadTarget } from './transfers.js';
 import { revalue } from './development.js';
 import { cupRounds, scheduleCupRound, scheduleGroups, scheduleLeague } from '../matchday/fixtures.js';
 import { penaltyShootout } from '../matchday/match.js';
@@ -100,10 +100,16 @@ export function startSeason(ctx: Ctx, season: number): void {
     // Sized to the room the club has. A fixed two a year left squads shrinking
     // by a player a season as age took its toll; a fixed four filled them to
     // the cap and the transfer market seized up.
-    const room = squadTarget(world, club.id) + 2 - squad(world, club.id).length;
+    const room = squadTarget(world, club.id) + 2 - ownSquadSize(world, club.id);
     // A club with no room takes no scholars this year. Forcing one on every
     // club every season was what kept the small clubs above the squad they
     // could afford, however hard the market tried to shift players out.
+    //
+    // Four a year is more than a squad of this size can absorb — see the age
+    // pyramid in the README — but halving it is not the answer on its own:
+    // measured over eight seasons the top flight fell to seventeen players
+    // and clubs started turning up without a fit goalkeeper, because nothing
+    // else in the world makes footballers.
     const intake = clamp(rng.int(2, 4) + (academy >= 5 ? 1 : 0) + (room > 4 ? 1 : 0), 0, Math.max(0, room));
     for (let i = 0; i < intake; i++) {
       // In the shape of a real squad: one keeper for every two forwards. An

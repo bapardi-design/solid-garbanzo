@@ -57,11 +57,23 @@ export function wageDemand(p: Player, real = false): number {
   return Math.max(1, Math.round(Math.pow(ovr / 100, 2.5) * 55 * (0.8 + 0.2 * ageFactor(p.age))));
 }
 
+/**
+ * A loan splits the wage. The club he plays for pays this much of it and the
+ * club that owns him pays the rest, which is what makes a loan worth taking:
+ * charged the lot, no club below the top flight could afford anybody's
+ * reserves and the loan market never opened at all.
+ */
+export const LOAN_WAGE_SHARE = 0.35;
+
 export function weeklyWageBill(world: World, clubId: string): number {
   let total = 0;
   for (const p of squad(world, clubId)) {
     const c = p.contractId ? world.contracts[p.contractId] : null;
-    if (c) total += c.wage;
+    if (c) total += p.loan ? c.wage * LOAN_WAGE_SHARE : c.wage;
+  }
+  for (const id of world.idx.loanedOutBy[clubId] ?? []) {
+    const c = world.players[id]?.contractId;
+    if (c) total += world.contracts[c].wage * (1 - LOAN_WAGE_SHARE);
   }
   return total;
 }

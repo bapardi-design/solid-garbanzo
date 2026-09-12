@@ -43,7 +43,7 @@ Flags: `--seasons N`, `--seed S`, `--leagues L`, `--clubs C` (per league),
 | `src/matchday/xi.ts` | Starting XI selection per tactic/formation |
 | `src/matchday/match.ts` | Match engine with explainable expected-goal factors |
 | `src/engines/finance.ts` | Wages, gate, sponsorship, prize money, budgets |
-| `src/engines/transfers.ts` | Market listings, needs, signings, loans, renewals, releases |
+| `src/engines/transfers.ts` | Market listings, needs, signings, loans (in and out), renewals, releases |
 | `src/engines/development.ts` | Growth toward potential, age decline, valuation |
 | `src/engines/morale.ts` | Post-match and weekly morale |
 | `src/engines/ai.ts` | Tactics, board reviews, sackings, appointments |
@@ -86,9 +86,12 @@ the substitutions and the half-time score are all recorded on the report.
 ### The drift, and where it came from
 
 Goals per match used to rise about 0.13 across six seasons. Over three seeds
-they now move between −0.03 and +0.03, comparing the mean of seasons one and
-two with the mean of five and six, which is smaller than the 0.05 a single
-season swings on its own.
+they now move between −0.02 and +0.10, a mean of +0.04, comparing seasons one
+and two with five and six against a 0.05 swing from one season to the next.
+Most of what is left is the price of an open loan market — with loans shut the
+same three seeds came out at −0.03 to +0.03 — because a boy out on loan plays,
+and a boy who plays comes good. That is the right trade: a dead loan market is
+a worse game than a tenth of a goal.
 
 The chain took a while to find, because the visible symptom was the last link
 in it. Mid-season the top flight's goalkeeping line fell about eight points
@@ -132,6 +135,55 @@ holds inside three points of where it starts. The fourth tier still creeps up
 about a point a season, so the pyramid is not finished closing — it is just no
 longer doing it fast enough to spoil a career.
 
+## Loans
+
+A loan splits the wage: the club he plays for pays 35% of it, the club that
+owns him pays the rest. Charged the whole wage no club below the top flight
+could afford anybody's reserves, and held to the squad it pays for every club
+in the pyramid was full — between them they shut the loan market completely,
+at about five loans a season in a world of ninety-two clubs. A loanee now sits
+up to two bodies above the squad a club pays for, three loans at a time, which
+puts it at forty in the first season and a hundred and fifty a year after
+that.
+
+The squad a club is measured against for every other purpose is the one it
+pays for: the players it has sent out count, the ones it has taken in do not.
+So the top flight carries 25 on the books against the fourth tier's 23, while
+the fourth tier has more bodies in the building.
+
+A human manager can send a player of 22 or under out for the rest of the
+season, to any club a division or more below that has a hole where he plays.
+That matters more than it looks: with growth turning on minutes, a boy behind
+two better players comes good nowhere else.
+
+### The age pyramid, which is the root of it
+
+What is left of the drift is one thing, and it is not calibration. Measured
+over eight seasons of the English world, with squads and club counts steady
+throughout:
+
+| Share of every squad | Season 1 | Season 8 |
+| --- | --- | --- |
+| 16-19 | 12% | 37% |
+| 20-23 | 29% | 30% |
+| 24-27 | 33% | 10% |
+| 28-31 | 21% | 16% |
+| 32+ | 5% | 7% |
+| Average age | 24.7 | 22.5 |
+
+A footballer's best years empty out and schoolboys fill the squad. It is
+arithmetic: three or four academy intakes a year into a squad of twenty-four
+turns the whole thing over in eight years, so nobody can be much older than
+that, and a squad of boys is a squad whose ratings are all still climbing
+towards their ceilings. That is the ratchet under everything above.
+
+Halving the intake is not the answer on its own — measured over eight seasons
+the top flight fell to seventeen players and clubs began turning up without a
+fit goalkeeper, because nothing else in the world makes footballers. What the
+pyramid needs is for most of an academy to be released at eighteen or
+nineteen, the way a real one is, and for the market to carry more of the load
+of filling a squad. That is the next thing to fix.
+
 Measured and rejected along the way, each across three seeds:
 
 - a rare high-potential roll on young players — no effect on the decay
@@ -152,7 +204,8 @@ fourth-tier one of around twenty-three. Clubs sign depth only up to that
 number, replace a position below the league standard up to two past it, and
 cover a genuine shortage up to three; at the end of the season anyone above it
 releases the bottom of the squad, paying off what is left of the contract, and
-takes no youth intake it has no room for. Loans respect the host's number too.
+takes no youth intake it has no room for. A loanee sits above that number
+rather than in it, because somebody else is paying most of his wages.
 
 Against a single cap for every club the order came out backwards — the fourth
 tier filled to thirty and the top flight sat at twenty-one, because a cheap

@@ -5,9 +5,9 @@
 import type { Ctx } from './core/context.js';
 import { clamp, hashString } from './core/rng.js';
 import type { CardEvent, Club, Decision, GoalEvent, TrainingFocus, Manager, NewsCategory, NewsItem, Player, Position, Tactic, TransferRecord, World } from './core/schema.js';
-import { contractOf, isRealWorld, nextId, squad, tierOfClub } from './core/schema.js';
+import { contractOf, isRealWorld, nextId, squad, tierCode, tierOfClub } from './core/schema.js';
 import { overall, playerValue, wageDemand, weeklyWageBill } from './rating.js';
-import { MAX_SQUAD, MIN_PER_POSITION, buildMarket, inTransferWindow, type Listing } from './engines/transfers.js';
+import { MAX_SQUAD, MIN_PER_POSITION, buildMarket, inTransferWindow, loanSuitors, sendOnLoan, type Listing } from './engines/transfers.js';
 import { computeTable, positionOf } from './matchday/table.js';
 import { MAX_LEVEL, openBoardroom, scoutSpread, ticketFactor } from './engines/boardroom.js';
 import { projectedGate, projectedPrize, weeklyCommercial, weeklyOperations } from './engines/finance.js';
@@ -136,6 +136,57 @@ export function unlistPlayer(ctx: Ctx, playerId: string): ActionResult {
   if (!club || !p || p.clubId !== club.id) return fail('Not your player.');
   ctx.emit('PLAYER_UNLISTED', { playerId });
   return done(`${p.name} taken off the market.`);
+}
+
+export interface LoanSuitor { clubId: string; name: string; tier: number; note: string }
+
+/** Places a formation gives a position, for judging whether he would play. */
+const starterSlotsFor = (pos: Position): number => ({ GK: 1, DF: 4, MF: 4, FW: 2 })[pos];
+
+/**
+ * Clubs that would give one of your young players a season of football. A boy
+ * who never gets on the pitch barely improves, so for anyone behind two better
+ * players this is the only way he comes good.
+ */
+export function loanOffersFor(ctx: Ctx, playerId: string): LoanSuitor[] {
+  const { world } = ctx;
+  const club = humanClub(ctx);
+  const p = world.players[playerId];
+  if (!club || !p || p.clubId !== club.id || p.loan || p.age > 22) return [];
+  const same = squad(world, club.id).filter((x) => x.position === p.position && x.id !== p.id).length;
+  if (same < MIN_PER_POSITION[p.position]) return [];
+  // Half the pyramid would take a good young player, which is no use to
+  // anyone choosing. The best loan is the highest club that will play him, so
+  // they come back nearest division first, best club first, twelve at most.
+  return loanSuitors(ctx, playerId)
+    .map((clubId) => {
+      const host = world.clubs[clubId];
+      const tier = tierOfClub(world, clubId) ?? 0;
+      const theirs = squad(world, clubId).filter((x) => x.position === p.position);
+      const better = theirs.filter((x) => overall(x) > overall(p)).length;
+      const game = better === 0 ? 'walks into their side' : better < starterSlotsFor(p.position) ? 'would start most weeks' : 'would have to win a place';
+      // Between seasons a club sits on its tier code rather than in a
+      // competition, so the division has to be found the long way round.
+      const code = `${tierCode(host.nationId, tier)}_S`;
+      const division = leagueOf(world, clubId)?.name
+        ?? Object.values(world.competitions).find((c) => c.kind === 'league' && c.id.startsWith(code))?.name
+        ?? `tier ${tier}`;
+      return { clubId, name: host.name, tier, note: `${division} · ${game}` };
+    })
+    .sort((a, b) => a.tier - b.tier || world.clubs[b.clubId].reputation - world.clubs[a.clubId].reputation || a.clubId.localeCompare(b.clubId))
+    .slice(0, 12);
+}
+
+/** Send a young player out for the rest of the season to get him games. */
+export function loanOutPlayer(ctx: Ctx, playerId: string, toClubId: string): ActionResult {
+  const { world } = ctx;
+  const p = world.players[playerId];
+  const offers = loanOffersFor(ctx, playerId);
+  if (offers.length === 0) return fail(`Nobody wants ${p?.name ?? 'him'} on loan.`);
+  if (!offers.some((o) => o.clubId === toClubId)) return fail(`${world.clubs[toClubId]?.name ?? 'That club'} are not interested.`);
+  if (p.listedAt !== null) ctx.emit('PLAYER_UNLISTED', { playerId });
+  sendOnLoan(ctx, playerId, toClubId);
+  return done(`${p.name} joins ${world.clubs[toClubId].name} on loan for the rest of the season.`);
 }
 
 /** Terminate a contract; the club pays half the remaining wages. */

@@ -23,6 +23,8 @@ export interface PlayerSeasonStats {
 
 export interface Loan {
   toClubId: string;
+  /** The club that still owns him, and still pays most of his wages. */
+  fromClubId: string;
   returnSeason: number;
 }
 
@@ -374,6 +376,8 @@ export interface SeasonSummary {
 
 export interface Indexes {
   squadByClub: Record<string, string[]>;
+  /** Players a club has sent out on loan, whose wages it is still paying. */
+  loanedOutBy: Record<string, string[]>;
   contractByPlayer: Record<string, string>;
   fixturesByDay: Record<number, string[]>;
   fixturesByCompetition: Record<string, string[]>;
@@ -504,7 +508,7 @@ export function createEmptyWorld(config: WorldConfig): World {
     freeAgents: [],
     history: [],
     counters: {},
-    idx: { squadByClub: {}, contractByPlayer: {}, fixturesByDay: {}, fixturesByCompetition: {} },
+    idx: { squadByClub: {}, loanedOutBy: {}, contractByPlayer: {}, fixturesByDay: {}, fixturesByCompetition: {} },
     humanClubId: null,
     humanManagerId: null,
     careerOver: null,
@@ -521,6 +525,30 @@ export function nextId(world: World, prefix: string, width = 5): string {
 }
 
 export function seasonDay(world: World): number { return world.day - world.seasonStartDay; }
+
+/** Nobody carries more than this, human managers included. */
+export const MAX_SQUAD = 30;
+
+/**
+ * How many players a club carries. Money sets the number, not ambition: a
+ * top-flight squad is deeper than a fourth-tier one because someone can pay
+ * for the depth. Against one cap for everybody the lower divisions ended up
+ * with the biggest squads in the game, because a cheap starter is easy to
+ * improve on and a dear one is not.
+ */
+export function squadTarget(world: World, clubId: string): number {
+  const rep = world.clubs[clubId]?.reputation ?? 50;
+  return Math.min(MAX_SQUAD - 2, Math.max(20, Math.round(18 + rep * 0.09)));
+}
+
+/**
+ * The players a club carries on its own account: the ones it has sent out on
+ * loan count, because it is still paying for them, and the ones it has taken
+ * in do not, because somebody else is.
+ */
+export function ownSquadSize(world: World, clubId: string): number {
+  return squad(world, clubId).filter((p) => !p.loan).length + (world.idx.loanedOutBy[clubId]?.length ?? 0);
+}
 
 export function squad(world: World, clubId: string): Player[] {
   return (world.idx.squadByClub[clubId] ?? []).map((id) => world.players[id]);

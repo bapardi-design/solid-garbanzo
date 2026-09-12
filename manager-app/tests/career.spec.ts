@@ -130,6 +130,45 @@ test('a career can be saved to a file and loaded back', async ({ page }) => {
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
+test('a young player can be sent out on loan and shows up as gone', async ({ page }) => {
+  const errors = watchForErrors(page);
+  await startCareer(page, 'loans');
+  // Offers only exist once the market has run once, which is the first week.
+  await playOneMatch(page);
+  await tab(page, 'Squad').click();
+  await expect(page.locator('table.squad')).toBeVisible();
+
+  // Find a player the loan control actually offers somewhere to go. Ages are
+  // the fifth column; anyone 22 or under is worth opening.
+  const rows = page.locator('table.squad tbody tr');
+  let sent: string | null = null;
+  for (let i = 0; i < (await rows.count()) && !sent; i++) {
+    const row = rows.nth(i);
+    const age = Number((await row.locator('td').nth(4).innerText()).trim());
+    if (!Number.isFinite(age) || age > 22) continue;
+    const name = (await row.locator('td').nth(1).innerText()).trim();
+    await row.click();
+    const drawer = page.locator('.drawer');
+    await expect(drawer).toBeVisible();
+    const select = drawer.locator('select[aria-label="Loan club"]');
+    if (await select.count()) {
+      sent = name;
+      await drawer.getByRole('button', { name: 'Send him out' }).click();
+    } else {
+      await drawer.getByRole('button', { name: 'Close' }).click();
+    }
+    await expect(page.locator('.drawer')).toHaveCount(0);
+  }
+  expect(sent, 'somebody in the squad had a loan offer').not.toBeNull();
+
+  // He leaves the table and appears under the club that is still paying him.
+  await expect(page.locator('table.squad tbody tr').filter({ hasText: sent! })).toHaveCount(0);
+  const out = page.locator('.panel', { hasText: 'Out on loan' }).locator('ul.settled li').filter({ hasText: sent! });
+  await expect(out).toHaveCount(1);
+  await expect(out).toContainText('back at the end of the season');
+  expect(errors, 'no page errors').toEqual([]);
+});
+
 test('a decision on the desk can be signed off and moves the money', async ({ page }) => {
   const errors = watchForErrors(page);
   await startCareer(page, 'e2e-desk');

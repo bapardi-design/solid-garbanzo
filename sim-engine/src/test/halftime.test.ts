@@ -347,14 +347,16 @@ test('squads do not waste away over a career', async () => {
 test('squads are sized by division, not by one cap for everybody', async () => {
   const { createGame, step } = await import('../browser/engine.js');
   const { DEFAULT_CONFIG, tierOfClub, squad } = await import('../core/schema.js');
-  const { MAX_SQUAD } = await import('../engines/transfers.js');
+  const { MAX_SQUAD, ownSquadSize } = await import('../engines/transfers.js');
   const game = createGame({ ...DEFAULT_CONFIG, seed: 'depth', nations: ['ENG', 'ESP'] });
   while (game.world.day < 3 * game.world.seasonLength + 180) step(game, 1);
   const byTier = new Map<number, number[]>();
   for (const club of Object.values(game.world.clubs)) {
     const tier = tierOfClub(game.world, club.id) ?? 0;
     if (!byTier.has(tier)) byTier.set(tier, []);
-    byTier.get(tier)!.push(squad(game.world, club.id).length);
+    // The squad it pays for, not the bodies in the building: a loanee is
+    // somebody else's wage bill, and the lower divisions host most of them.
+    byTier.get(tier)!.push(ownSquadSize(game.world, club.id));
   }
   const avg = (tier: number) => {
     const a = byTier.get(tier) ?? [];
@@ -367,8 +369,37 @@ test('squads are sized by division, not by one cap for everybody', async () => {
   // starters are too dear to improve on cheaply, sat at twenty-one.
   assert.ok(avg(1) - avg(4) >= 0.5, `squads by division: ${shape}`);
   assert.ok(avg(2) - avg(4) >= 0.3, `squads by division: ${shape}`);
+  assert.ok(avg(3) - avg(4) >= 0, `squads by division: ${shape}`);
   const biggest = Math.max(...Object.values(game.world.clubs).map((c) => squad(game.world, c.id).length));
   assert.ok(biggest <= MAX_SQUAD, `someone is carrying ${biggest} players`);
+});
+
+test('the loan market opens, and nobody fills up on other clubs players', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const { DEFAULT_CONFIG, squad } = await import('../core/schema.js');
+  const { MAX_LOANS_IN } = await import('../engines/transfers.js');
+  const { LOAN_WAGE_SHARE, weeklyWageBill } = await import('../rating.js');
+  const game = createGame({ ...DEFAULT_CONFIG, seed: 'lending', nations: ['ENG'] });
+  let started = 0;
+  // Stop mid-season: loans all come home at the rollover.
+  while (game.world.day < 2 * game.world.seasonLength + 180) {
+    for (const e of step(game, 1)) if (e.type === 'LOAN_STARTED') started++;
+  }
+  // Charged the whole wage, no club below the top flight could afford anybody's
+  // reserves, and held to the squad it pays for every club in the pyramid was
+  // full. Between them they shut the loan market completely.
+  assert.ok(started >= 20, `only ${started} loans in two and a half seasons`);
+  for (const club of Object.values(game.world.clubs)) {
+    const here = squad(game.world, club.id).filter((p) => p.loan).length;
+    assert.ok(here <= MAX_LOANS_IN, `${club.name} have ${here} players on loan`);
+  }
+  // The wage follows the split in both directions.
+  const lent = Object.values(game.world.players).find((p) => p.loan);
+  assert.ok(lent, 'nobody is out on loan');
+  const wage = game.world.contracts[lent.contractId!].wage;
+  const owner = lent.loan!.fromClubId;
+  assert.ok(game.world.idx.loanedOutBy[owner]?.includes(lent.id), 'the owner has lost track of him');
+  assert.ok(weeklyWageBill(game.world, owner) > wage * (1 - LOAN_WAGE_SHARE) - 0.001, 'the owner has stopped paying');
 });
 
 test('the top flight does not rot away', async () => {
