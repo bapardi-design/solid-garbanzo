@@ -41,10 +41,19 @@ async function startCareer(page: Page, seed: string): Promise<string> {
 /** Clicks through a match, however it is being shown, until the modal closes. */
 async function playOneMatch(page: Page): Promise<boolean> {
   const go = page.getByRole('button', { name: 'Continue to match' }).first();
-  if (!(await go.count()) || !(await go.isEnabled())) return false;
+  // Wait for it rather than giving up: a test that quietly plays no matches
+  // passes in three seconds and proves nothing.
+  try {
+    await go.waitFor({ state: 'visible', timeout: 20_000 });
+  } catch {
+    return false;
+  }
+  if (!(await go.isEnabled())) return false;
   await go.click();
   await page.waitForTimeout(800);
-  if (!(await page.locator('.modal').count())) return true;
+  // No modal means the day advanced without one of our matches: not a match
+  // played, whatever the button said.
+  if (!(await page.locator('.modal').count())) return false;
   for (let i = 0; i < 16 && (await page.locator('.modal').count()); i++) {
     let clicked = false;
     for (const label of ['Skip to half-time', 'No changes', 'Play the second half', 'Skip to full-time', 'Continue']) {
@@ -67,7 +76,14 @@ test('a career can be started, played and read', async ({ page }) => {
   const club = await startCareer(page, 'e2e-career');
   await expect(page.locator('.game')).toContainText(club.split(' ')[0]);
 
-  for (let i = 0; i < 2; i++) if (!(await playOneMatch(page))) break;
+  // Keep going until a match of ours actually comes round.
+  let played = 0;
+  for (let i = 0; i < 8 && played < 2; i++) if (await playOneMatch(page)) played++;
+  expect(played, 'matches were actually played').toBeGreaterThan(0);
+  // And a result is on the board, not just a button pressed: the fixtures
+  // list marks our own played matches won, drawn or lost.
+  await tab(page, 'Fixtures').click();
+  await expect(page.locator('.rows li.res-W, .rows li.res-D, .rows li.res-L').first()).toBeVisible();
 
   // Every panel renders. A crash in any of them is a career you cannot read.
   for (const name of ['Home', 'News', 'Squad', 'Transfers', 'Tactics', 'Fixtures', 'Competitions', 'Boardroom', 'Finances', 'Club', 'Jobs']) {
@@ -90,7 +106,9 @@ test('a career can be started, played and read', async ({ page }) => {
 test('a career can be saved to a file and loaded back', async ({ page }) => {
   const errors = watchForErrors(page);
   const club = await startCareer(page, 'e2e-file');
-  await playOneMatch(page);
+  let onePlayed = false;
+  for (let i = 0; i < 8 && !onePlayed; i++) onePlayed = await playOneMatch(page);
+  expect(onePlayed, 'a match was played before saving').toBe(true);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await page.waitForTimeout(1000);
 
