@@ -119,7 +119,7 @@ export interface CompetitionLeague {
   complete: boolean;
 }
 
-export type CupKind = 'domestic' | 'leagueCup' | 'continental';
+export type CupKind = 'domestic' | 'leagueCup' | 'continental' | 'playoff';
 
 export interface CompetitionCup {
   id: string;

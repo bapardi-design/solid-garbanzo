@@ -53,6 +53,10 @@ export const CONTINENTAL_GROUP_WEEKS = [8, 10, 12, 14, 16, 18];
 export const CONTINENTAL_FINAL_WEEK = 36;
 export const CONTINENTAL_KNOCKOUT_GAP = 4;
 
+/** Play-off days, counted from the start of the season. */
+const PLAYOFF_SEMI_DAY = 353;
+const PLAYOFF_GAP = 6;
+
 export function leagueRoundDay(world: Ctx['world'], round: number): number {
   return world.seasonStartDay + (FIRST_LEAGUE_WEEK + round - 1) * 7 + LEAGUE_MATCH_WEEKDAY;
 }
@@ -70,6 +74,10 @@ export function cupDay(world: Ctx['world'], comp: CompetitionCup, round: number)
       const week = CONTINENTAL_FINAL_WEEK - (comp.totalRounds - round) * CONTINENTAL_KNOCKOUT_GAP;
       return world.seasonStartDay + week * 7 + CONTINENTAL_WEEKDAY;
     }
+    case 'playoff':
+      // After the league has finished, with a few days between the semi-finals
+      // and the final.
+      return world.seasonStartDay + PLAYOFF_SEMI_DAY + (round - 1) * PLAYOFF_GAP;
     default:
       return cupRoundDay(world, round);
   }
@@ -137,7 +145,12 @@ export function cupRounds(entrants: number): number { return Math.max(1, Math.ce
  */
 export function scheduleCupRound(ctx: Ctx, comp: CompetitionCup): { fixtures: Fixture[]; byes: string[] } {
   const { world, rng } = ctx;
-  const alive = rng.shuffle([...comp.alive]);
+  // A cup draw is random; a play-off is seeded, so third plays sixth and the
+  // club that finished higher has the home leg.
+  const seeded = comp.cupKind === 'playoff';
+  const alive = seeded
+    ? [...comp.alive].sort((a, b) => comp.clubIds.indexOf(a) - comp.clubIds.indexOf(b))
+    : rng.shuffle([...comp.alive]);
   // Largest power of two not exceeding the field; byes = 2p - n so the next round has exactly p clubs.
   const p = Math.pow(2, Math.floor(Math.log2(Math.max(1, alive.length))));
   const byeCount = alive.length === p ? 0 : 2 * p - alive.length;
@@ -145,6 +158,13 @@ export function scheduleCupRound(ctx: Ctx, comp: CompetitionCup): { fixtures: Fi
   const playing = alive.slice(byeCount);
   const day = cupDay(world, comp, comp.round);
   const fixtures: Fixture[] = [];
+  if (seeded) {
+    for (let i = 0; i < Math.floor(playing.length / 2); i++) {
+      const home = playing[i], away = playing[playing.length - 1 - i];
+      fixtures.push(blankFixture(world, comp.id, comp.season, comp.round, day, home, away, true, null));
+    }
+    return { fixtures, byes };
+  }
   for (let i = 0; i + 1 < playing.length; i += 2) {
     fixtures.push(blankFixture(world, comp.id, comp.season, comp.round, day, playing[i], playing[i + 1], true, null));
   }

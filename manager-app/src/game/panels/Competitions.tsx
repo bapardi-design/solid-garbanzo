@@ -32,6 +32,12 @@ function LeagueView({ game, clubId, comp, onPlayer }: { game: GameT; clubId: str
   const n = comp.clubIds.length;
   const nation = world.nations[comp.nationId];
   const contSlots = comp.tier === 1 ? nation?.continentalSlots ?? 0 : 0;
+  // Where a division promotes more than one, the last place up is a play-off
+  // between the four clubs below the automatic places.
+  const hasPlayoff = comp.promote >= 2;
+  const auto = hasPlayoff ? comp.promote - 1 : comp.promote;
+  const playoffLast = hasPlayoff ? auto + Engine.PLAYOFF_FIELD : 0;
+  const playoff = world.competitions[Engine.playoffCompId(comp.nationId, world.season, comp.tier)];
   const scorers = useMemo(() => comp.clubIds.flatMap((id) => Engine.squad(world, id)).filter((p) => p.stats.goals > 0).sort((a, b) => b.stats.goals - a.stats.goals || b.stats.assists - a.stats.assists).slice(0, 12), [world, comp, world.day]); // eslint-disable-line react-hooks/exhaustive-deps
   const rated = useMemo(() => comp.clubIds.flatMap((id) => Engine.squad(world, id)).filter((p) => p.stats.apps >= 5).sort((a, b) => Engine.averageRating(b) - Engine.averageRating(a)).slice(0, 12), [world, comp, world.day]); // eslint-disable-line react-hooks/exhaustive-deps
   const [round, setRound] = useState<number | null>(null);
@@ -43,19 +49,34 @@ function LeagueView({ game, clubId, comp, onPlayer }: { game: GameT; clubId: str
   return (
     <div className="grid-2 wide">
       <section className="panel">
-        <header><h3>{comp.name}</h3><span className="muted">{nation?.name} tier {comp.tier} · {n} clubs{comp.promote ? ` · ${comp.promote} up` : ''}{comp.relegate ? ` · ${comp.relegate} down` : ''}{contSlots ? ` · top ${contSlots} qualify` : ''}</span></header>
+        <header><h3>{comp.name}</h3><span className="muted">{nation?.name} tier {comp.tier} · {n} clubs{auto ? ` · ${auto} up` : ''}{hasPlayoff ? ` · ${Engine.PLAYOFF_FIELD} in the play-offs` : ''}{comp.relegate ? ` · ${comp.relegate} down` : ''}{contSlots ? ` · top ${contSlots} qualify` : ''}</span></header>
         <div className="scroll">
           <table>
             <thead><tr><th className="num">#</th><th>Club</th><th className="num">P</th><th className="num">W</th><th className="num">D</th><th className="num">L</th><th className="num">GF</th><th className="num">GA</th><th className="num">GD</th><th className="num">Pts</th><th>Form</th><th>Manager</th></tr></thead>
             <tbody>
               {table.map((r) => {
                 const c = world.clubs[r.clubId];
-                const cls = [r.clubId === clubId ? 'mine' : '', comp.promote > 0 && r.position <= comp.promote ? 'zone-up' : contSlots > 0 && r.position <= contSlots ? 'zone-cont' : comp.relegate > 0 && r.position > n - comp.relegate ? 'zone-down' : ''].join(' ');
+                const cls = [
+                  r.clubId === clubId ? 'mine' : '',
+                  auto > 0 && r.position <= auto ? 'zone-up'
+                    : playoffLast > 0 && r.position <= playoffLast ? 'zone-playoff'
+                    : contSlots > 0 && r.position <= contSlots ? 'zone-cont'
+                    : comp.relegate > 0 && r.position > n - comp.relegate ? 'zone-down' : '',
+                ].join(' ');
                 return <tr key={r.clubId} className={cls}><td className="num">{r.position}</td><td className="club-cell"><Crest name={c.name} short={c.short} size="xs" />{c.name}</td><td className="num">{r.played}</td><td className="num">{r.won}</td><td className="num">{r.drawn}</td><td className="num">{r.lost}</td><td className="num">{r.gf}</td><td className="num">{r.ga}</td><td className="num">{r.gd > 0 ? '+' : ''}{r.gd}</td><td className="num pts">{r.points}</td><td className="mono muted">{c.form.map((p) => (p === 3 ? 'W' : p === 1 ? 'D' : 'L')).join('')}</td><td className="muted">{c.managerId ? world.managers[c.managerId].name : 'vacant'}</td></tr>;
               })}
             </tbody>
           </table>
         </div>
+        {playoff?.kind === 'cup' ? (
+          <div className="body">
+            <p className="muted small">
+              {playoff.winnerId
+                ? <>Play-offs: <b>{world.clubs[playoff.winnerId].name}</b> go up.</>
+                : <>Play-offs between {playoff.clubIds.map((id) => world.clubs[id].short).join(', ')} decide the last place.</>}
+            </p>
+          </div>
+        ) : null}
       </section>
       <div className="stack">
         <section className="panel">

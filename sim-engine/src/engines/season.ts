@@ -21,6 +21,10 @@ export { tierFromLeagueId };
 export function leagueCompId(nationId: string, season: number, tier: number): string { return `${tierCode(nationId, tier)}_S${season}`; }
 export function cupCompId(nationId: string, season: number): string { return `${nationId}-CUP_S${season}`; }
 export function leagueCupCompId(nationId: string, season: number): string { return `${nationId}-LC_S${season}`; }
+export function playoffCompId(nationId: string, season: number, tier: number): string { return `${tierCode(nationId, tier)}-PO_S${season}`; }
+
+/** Clubs in a play-off: the four below the automatic promotion places. */
+export const PLAYOFF_FIELD = 4;
 export function continentalCompId(season: number): string { return `CONT_S${season}`; }
 
 /** Clubs exchanged between tier `tier` and `tier + 1`. */
@@ -184,6 +188,32 @@ function startContinental(ctx: Ctx, previous: SeasonSummary | null): void {
   ctx.emit('FINANCE_POSTED', { entries: entrants.map((clubId) => ({ clubId, category: 'cup', amount: fee })) });
 }
 
+/**
+ * Opens a division's play-offs once its league season is over. The last
+ * promotion place is not handed to whoever finished third: the four clubs
+ * below the automatic places play for it, which is the most watched week of
+ * the lower divisions' year.
+ */
+export function openPlayoffs(ctx: Ctx): void {
+  const { world } = ctx;
+  for (const comp of Object.values(world.competitions)) {
+    if (comp.kind !== 'league' || comp.season !== world.season) continue;
+    if (comp.promote < 2) continue; // nothing to play for, or only one way up
+    const id = playoffCompId(comp.nationId, world.season, comp.tier);
+    if (world.competitions[id]) continue;
+    const fixtures = (world.idx.fixturesByCompetition[comp.id] ?? []).map((f) => world.fixtures[f]);
+    if (fixtures.length === 0 || fixtures.some((f) => !f.played)) continue;
+    const table = computeTable(world, comp);
+    const automatic = comp.promote - 1;
+    const field = table.slice(automatic, automatic + PLAYOFF_FIELD).map((r) => r.clubId);
+    if (field.length < PLAYOFF_FIELD) continue;
+    const name = `${comp.name} play-offs`;
+    const playoff = knockoutCup(id, 'playoff', name, comp.nationId, world.season, field);
+    ctx.emit('COMPETITION_CREATED', { competition: playoff });
+    ctx.emit('FIXTURES_SCHEDULED', { fixtures: scheduleCupRound(ctx, playoff).fixtures });
+  }
+}
+
 /** Called after a day's matches: advance cups whose current round is complete. */
 export function advanceCups(ctx: Ctx): void {
   const { world } = ctx;
@@ -258,7 +288,13 @@ export function endSeason(ctx: Ctx): void {
     const lowerTable = tables.get(lower.id)!;
     const n = Math.min(league.relegate, lower.promote);
     const down = upperTable.slice(upperTable.length - n).map((r) => r.clubId);
-    const up = lowerTable.slice(0, n).map((r) => r.clubId);
+    // Where a play-off was held, the last place up is its winner rather than
+    // the club that finished next in the table.
+    const playoff = world.competitions[playoffCompId(lower.nationId, world.season, lower.tier)];
+    const viaPlayoff = playoff?.kind === 'cup' && playoff.winnerId ? playoff.winnerId : null;
+    const up = viaPlayoff && n > 0
+      ? [...lowerTable.slice(0, n - 1).map((r) => r.clubId), viaPlayoff]
+      : lowerTable.slice(0, n).map((r) => r.clubId);
     for (const id of down) { leagueMoves[id] = tierCode(league.nationId, lower.tier); summary.relegated.push(id); }
     for (const id of up) { leagueMoves[id] = tierCode(league.nationId, league.tier); summary.promoted.push(id); }
   }

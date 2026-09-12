@@ -5,7 +5,7 @@ import { boardReview, chooseTactics, fillManagerVacancies, isMidSeasonReviewDay 
 import { revalue, weeklyDevelopment } from '../engines/development.js';
 import { matchdayIncome, weeklyFinance } from '../engines/finance.js';
 import { postMatchMorale, weeklyMorale } from '../engines/morale.js';
-import { advanceCups, endSeason, startSeason } from '../engines/season.js';
+import { advanceCups, endSeason, openPlayoffs, startSeason } from '../engines/season.js';
 import { inTransferWindow, renewContracts, runTransferDay } from '../engines/transfers.js';
 import { finishMatch, simulateFirstHalf, simulateMatch, type HalfTimeDecision } from '../matchday/match.js';
 import { dailyPress } from '../engines/press.js';
@@ -92,7 +92,7 @@ function startOfDay(ctx: Ctx): void {
 /** Everything that happens after the day's fixtures. */
 function endOfDay(ctx: Ctx, hadFixtures: boolean): void {
   const { world } = ctx;
-  if (hadFixtures) advanceCups(ctx);
+  if (hadFixtures) { advanceCups(ctx); openPlayoffs(ctx); }
   if (isMidSeasonReviewDay(ctx)) {
     boardReview(ctx, false);
     fillManagerVacancies(ctx);
