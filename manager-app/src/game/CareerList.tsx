@@ -1,8 +1,9 @@
 'use client';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSession } from './session';
-import { cloud, local, type CareerMeta } from './store';
+import { cloud, local, newLocalId, type CareerMeta, type CareerRecord } from './store';
+import { exportCareer, exportFilename, importCareer } from './portable';
 import { money } from './format';
 
 export function CareerList() {
@@ -10,6 +11,9 @@ export function CareerList() {
   const [careers, setCareers] = useState<CareerMeta[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [limits, setLimits] = useState<{ plan: string; maxCareers: number; maxSeasons: number } | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const file = useRef<HTMLInputElement>(null);
 
   async function load() {
     try {
@@ -34,14 +38,64 @@ export function CareerList() {
     await load();
   }
 
+  /** Saves a career to a file the manager can keep or send to someone. */
+  async function save(c: CareerMeta) {
+    setBusy(c.id);
+    setNote(null);
+    try {
+      const record = c.storage === 'cloud' ? await cloud.get(c.id) : await local.get(c.id);
+      if (!record) throw new Error('That career could not be read.');
+      const blob = await exportCareer(record);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = exportFilename(record);
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      setNote(`${record.clubName} saved to a file.`);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Takes a career file and puts it on this device. */
+  async function open(f: File) {
+    setBusy('import');
+    setError(null);
+    setNote(null);
+    try {
+      const incoming = await importCareer(f);
+      const record: CareerRecord = {
+        ...incoming,
+        id: newLocalId(),
+        storage: 'local',
+        updatedAt: new Date().toISOString(),
+        name: incoming.name,
+      };
+      await local.put(record);
+      setNote(`${record.clubName} loaded. It is on this device now.`);
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+      if (file.current) file.current.value = '';
+    }
+  }
+
   return (
     <div className="stack">
       <div className="actions">
         <Link href="/play/new" className="btn primary">New career</Link>
+        <button className="btn" disabled={busy === 'import'} onClick={() => file.current?.click()}>{busy === 'import' ? 'Loading…' : 'Load from a file'}</button>
+        <input ref={file} type="file" accept=".touchline,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void open(f); }} />
         {limits ? <span className="muted">{limits.plan} plan · {careers?.filter((c) => c.storage === 'cloud').length ?? 0}/{limits.maxCareers} cloud careers</span> : null}
         {!session.signedIn && session.authEnabled ? <Link href="/login?next=/play" className="btn">Sign in for cloud saves</Link> : null}
       </div>
       {error ? <p className="notice error">{error}</p> : null}
+      {note ? <p className="notice">{note}</p> : null}
       {careers === null ? <p className="muted">Loading…</p> : careers.length === 0 ? (
         <p className="empty">No careers yet. Start one and take over a club.</p>
       ) : (
@@ -57,6 +111,7 @@ export function CareerList() {
               </div>
               <div className="actions">
                 <Link href={`/play/${c.id}`} className="btn primary small">{c.summary?.careerOver ? 'Review' : 'Continue'}</Link>
+                <button className="btn small" disabled={busy === c.id} onClick={() => save(c)}>{busy === c.id ? 'Saving…' : 'Save to file'}</button>
                 <button className="btn small danger" onClick={() => remove(c)}>Delete</button>
               </div>
             </article>
