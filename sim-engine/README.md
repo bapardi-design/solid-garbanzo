@@ -286,6 +286,36 @@ arithmetic wants, still empties the squads — 18.0 men in the top flight and
 the divisions converging hard — so the next attempt is about where a club
 finds bodies, not where it finds quality.
 
+### What the world does with the ones it does not need
+
+Counting what the world makes against what it removes says where the prime
+years actually go, and it is not the transfer market at all. Ninety-two clubs
+hold 2,139 players between them, 23.3 a club, and the academies make 291 a
+season:
+
+| | made | left the game | mean age | of those, released and never signed |
+| --- | --- | --- | --- | --- |
+| season 1 | 283 | 87 | 33.0 | 68 |
+| season 3 | 280 | 374 | 26.5 | 368 |
+| season 5 | 281 | 319 | 27.5 | 303 |
+| season 8 | 301 | 300 | 26.9 | 284 |
+
+291 a season into 2,139 places means a career of 7.3 years is all that fits,
+and the world balances the books by putting three hundred men a season out of
+football at twenty-seven — 95% of them players nobody signed after a release,
+not players who got old. The hole in the prime years is not a shortage of
+buyers or sellers. It is the retirement valve absorbing an overproduction of
+schoolboys, and a club is never short of bodies because the ones it discards
+are gone by the time it needs them.
+
+So the next attempt is the valve: a twenty-five-year-old released by a
+second-division club should drop down the pyramid, not leave the game, and the
+intake should fall to something a sixteen-year career can absorb — around 1.5 a
+club. Both halves at once, because either alone has already been measured and
+fails: a released man who survives longer just sits in the pool while the
+intake still floods it, and a smaller intake with the valve as it is empties
+the squads to 18 men.
+
 Measured and rejected this time, each across three seeds:
 
 - spreading the intake's quality within a year, the best scholar at the club's
