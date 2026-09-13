@@ -382,6 +382,21 @@ So the pyramid is not a transfer-market problem and never was. It is that the
 only source of new quality is the academy, and the only way out of the game is
 retirement, and those two facts fix the turnover rate whatever the market does.
 
+Two things that would have been worth hoping for, and are not:
+
+- **It is not an artefact of the one-nation world these measurements use.** The
+  world the game ships with is five nations, 246 clubs and 6,214 players, and
+  it does the same thing: sixteen to nineteens go 11% to 33% over eight
+  seasons, the twenty-four to twenty-sevens 34% to 10%, average age 24.9 to
+  23.0. Its top flights hold more men than England's alone (23.4 against 21.1)
+  and lose a point and a half of quality doing it.
+- **The market is already open across borders, and it changes nothing.** Over
+  four seasons of that world, 261 transfers cross a border against 79 within
+  one — England buys from all four of the others and sells to them. Adding
+  nations adds producers, not a second source of quality: every academy in
+  every country turns out the same three or four a year against the same
+  squads.
+
 Measured and rejected this time, each across three seeds:
 
 - spreading the intake's quality within a year, the best scholar at the club's
