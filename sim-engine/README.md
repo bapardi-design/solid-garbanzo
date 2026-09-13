@@ -397,6 +397,26 @@ Two things that would have been worth hoping for, and are not:
   every country turns out the same three or four a year against the same
   squads.
 
+It does do something else, though, and it is worth knowing before anyone
+tunes it. The five top divisions do not decline together — England holds and
+the rest drain into it:
+
+| top division | season 1 | season 8 |
+| --- | --- | --- |
+| England | 78.3 | 78.7 |
+| Spain | 75.2 | 74.6 |
+| Germany | 75.9 | 74.4 |
+| Italy | 75.9 | 72.5 |
+| France | 74.6 | 71.4 |
+
+England takes about eighty players in from the other four over four seasons
+and sends fewer back, because its clubs start richer and better thought of,
+and the chance a deal comes off leans on the gap in reputation between the two
+clubs. Italy and France lose three points in eight seasons and their clubs'
+reputations slide with it. That is the direction real football runs in, so it
+is left alone; whether a league that starts four points behind should end ten
+behind is a decision about what the game is, not a bug.
+
 Measured and rejected this time, each across three seeds:
 
 - spreading the intake's quality within a year, the best scholar at the club's
