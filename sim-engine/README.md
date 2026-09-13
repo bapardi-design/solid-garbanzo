@@ -397,6 +397,26 @@ Two things that would have been worth hoping for, and are not:
   every country turns out the same three or four a year against the same
   squads.
 
+It does do something else, though, and it is worth knowing before anyone
+tunes it. The five top divisions do not decline together — England holds and
+the rest drain into it:
+
+| top division | season 1 | season 8 |
+| --- | --- | --- |
+| England | 78.3 | 78.7 |
+| Spain | 75.2 | 74.6 |
+| Germany | 75.9 | 74.4 |
+| Italy | 75.9 | 72.5 |
+| France | 74.6 | 71.4 |
+
+England takes about eighty players in from the other four over four seasons
+and sends fewer back, because its clubs start richer and better thought of,
+and the chance a deal comes off leans on the gap in reputation between the two
+clubs. Italy and France lose three points in eight seasons and their clubs'
+reputations slide with it. That is the direction real football runs in, so it
+is left alone; whether a league that starts four points behind should end ten
+behind is a decision about what the game is, not a bug.
+
 Measured and rejected this time, each across three seeds:
 
 - spreading the intake's quality within a year, the best scholar at the club's
@@ -558,6 +578,33 @@ outcome balance per season, club balances by division, transfer activity, final
 league tables, honours, leading scorers, three explained matches with their
 goal-factor bars, and the season's event counts. Each chart has its data table
 beside it and renders in light and dark themes.
+
+## What a save weighs
+
+A snapshot is the whole world, and the real world is 246 clubs in five
+countries. Written out as JSON, with no compression:
+
+| world | clubs | season 1 | season 5 |
+| --- | --- | --- | --- |
+| real, five nations | 246 | 14.06 MB (1.5 MB gzipped) | 19.77 MB (2.1 MB) |
+| fictional, default | 24 | 1.05 MB (107 KB) | 1.70 MB (174 KB) |
+| fictional, small | 16 | 0.60 MB (63 KB) | 1.00 MB (101 KB) |
+
+It grows about 150 KB gzipped a season and does not stop: retired players are
+kept for ever so their careers can be read, and the transfer log runs from
+2,000 rows after one season to 39,000 after ten. A season itself still takes
+about the same time to play at season ten as at season one, five to seven
+seconds, so the simulation does not slow down — it is only the state that
+accumulates. News is already capped at 600 items.
+
+A local career goes to IndexedDB, which is happy with that. A cloud career is
+posted to `/api/careers` as raw JSON in the request body, and `save()` runs
+after every match the manager plays — so a real-world cloud career uploads
+fourteen megabytes, then twenty, once per matchday, forty-odd times a season.
+Gzipping the snapshot before it goes would cut it by about ten to one. It is
+not done here because the cloud path needs a signed-in account and a live
+database to exercise, and a storage format is not a thing to change untested.
+
 
 ## Explorer
 
