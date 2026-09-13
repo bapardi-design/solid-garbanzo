@@ -526,7 +526,13 @@ export function finishMatch(ctx: Ctx, ht: HalfTimeState, decision: HalfTimeDecis
   const mine1 = elevenLeft(world, humanHome ? homeSel1 : awaySel1, humanHome ? offHome : offAway, humanHome ? ht.homeTactic : ht.awayTactic);
   const newTactic = decision.tactic ?? (humanHome ? ht.homeTactic : ht.awayTactic);
   const oldTactic = humanHome ? ht.homeTactic : ht.awayTactic;
-  const { sel: mine2, applied } = applySubs(world, mine1, decision.subs ?? []);
+  // A dismissed player takes no part whatever the caller asks for. The
+  // half-time screen used to list him among the substitutes, and bringing him
+  // back on put him in both halves' elevens, so his record showed ninety
+  // minutes for a match he was sent off in.
+  const dismissed = humanHome ? offHome : offAway;
+  const asked = (decision.subs ?? []).filter((sub) => !dismissed.has(sub.onId));
+  const { sel: mine2, applied } = applySubs(world, mine1, asked);
 
   const homeSel2 = humanHome ? mine2 : elevenLeft(world, homeSel1, offHome, ht.homeTactic);
   const awaySel2 = humanHome ? elevenLeft(world, awaySel1, offAway, ht.awayTactic) : mine2;

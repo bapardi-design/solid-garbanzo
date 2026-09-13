@@ -769,3 +769,31 @@ test('a gifted boy can be born anywhere, and he ends up where he belongs', async
   assert.ok(risen.length > 0, `none of the ${gifted.length} gifted boys made it to the top flight`);
   assert.ok(earlyRisers.length > 0, 'nobody was ever signed up the pyramid before he was good enough');
 });
+
+test('a man sent off in the first half cannot come back on at half time', async () => {
+  // Seeds chosen because the manager's own side goes down to ten before the
+  // break; a sending-off is rare enough that the ordinary seeds never see one,
+  // which is why this went unnoticed.
+  for (const seed of ['r22', 'r245']) {
+    const { game, A } = await pausedGame(seed);
+    const { resumeHalfTime } = await import('../browser/engine.js');
+    const view = A.halfTimeView(game.world)!;
+    const dismissed = view.mine.sentOff[0];
+    assert.ok(dismissed, `${seed} was meant to produce a sending-off`);
+
+    // He is not offered. He used to come top of the list, being one of the
+    // better players in the side.
+    assert.ok(!view.mine.bench.includes(dismissed), 'the dismissed player was offered as a substitute');
+    assert.ok(!view.mine.xi.some((x) => x.playerId === dismissed), 'the dismissed player is still in the eleven');
+
+    // And the engine refuses him even when asked directly, which is what the
+    // saved game or a script would do.
+    const before = game.world.players[dismissed].stats.minutes;
+    const off = view.mine.xi[view.mine.xi.length - 1].playerId;
+    resumeHalfTime(game, { subs: [{ offId: off, onId: dismissed }] });
+    const played = game.world.players[dismissed].stats.minutes - before;
+    assert.ok(played <= 45, `${seed}: he was credited ${played} minutes of a match he was sent off in`);
+    // The man he was supposed to replace stayed on, because no legal swap was made.
+    assert.equal(game.world.players[off].stats.minutes % 45, 0, 'minutes come in halves');
+  }
+});

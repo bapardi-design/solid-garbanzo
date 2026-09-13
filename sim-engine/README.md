@@ -482,6 +482,24 @@ sacked in May has no club when the scholars arrive in June, which is what the
 first seed the test was written against did.
 
 
+## Ten men
+
+A player sent off in the first half of the manager's own match was dropped from
+the eleven on the half-time screen, as he should be, and nothing took him off
+the bench with it — the bench was everyone not in the eleven. So the game
+offered your own dismissed player as a substitute, top of the list four times
+in five, because a man good enough to be picked is usually better than the ones
+who were not. Bringing him back on was allowed, and since he then stood in both
+halves' elevens his record showed ninety minutes for a match he had been sent
+off in.
+
+Sendings-off are rare enough that no ordinary seed produced one, which is why
+the minutes test looked fragile rather than right: it only failed when a change
+elsewhere happened to push a red card into the first half of the match it
+watches. The bench now excludes him, and `finishMatch` refuses him whatever it
+is asked for, because a saved game or a script does not go through the screen.
+
+
 ## Report
 
 `--report FILE` writes a single HTML file with no external scripts: goals and

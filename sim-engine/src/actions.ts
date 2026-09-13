@@ -509,8 +509,12 @@ export function halfTimeView(world: World): HalfTimeView | null {
   const xi = [...xiIds]
     .map((playerId) => ({ playerId, pos: world.players[playerId]?.position ?? 'MF' as Position }))
     .sort((a, b) => order.indexOf(a.pos) - order.indexOf(b.pos) || overall(world.players[b.playerId]) - overall(world.players[a.playerId]));
+  // A man sent off is out of the XI and off the bench with it. He was dropped
+  // from the eleven above and nothing put him back, so the screen offered your
+  // own dismissed player as a substitute — usually top of the list, because he
+  // is one of the better ones — and bringing him back on was allowed.
   const bench = squad(world, ht.clubId)
-    .filter((p) => !p.retired && p.injuryDays === 0 && p.suspension === 0 && !xiIds.includes(p.id))
+    .filter((p) => !p.retired && p.injuryDays === 0 && p.suspension === 0 && !xiIds.includes(p.id) && !sentOff.includes(p.id))
     .sort((a, b) => overall(b) - overall(a))
     .map((p) => p.id);
   return {
