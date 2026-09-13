@@ -680,6 +680,11 @@ test('the academy intake is reported, for the manager club and nobody else', asy
   // rollover, which is the path that matters and the one a sacking hides.
   const arrivalsByDay = new Map<number, string[]>();
   for (let i = 0; i < 401 && game.world.season === 1; i++) {
+    // A board that sacks him in May leaves nobody to report an intake to in
+    // June, which is a fact about the board and not about the press: take the
+    // job back rather than let a calibration change somewhere else quietly
+    // turn this test into one that asserts nothing.
+    if (game.world.humanClubId === null) takeOverClub(game.ctx, clubId, 'Intake Manager');
     for (const e of step(game, 1)) {
       if (e.type !== 'PLAYER_CREATED') continue;
       if (e.payload.player.clubId !== game.world.humanClubId) continue;
@@ -688,7 +693,6 @@ test('the academy intake is reported, for the manager club and nobody else', asy
       arrivalsByDay.set(game.world.day, on);
     }
   }
-  assert.equal(game.world.humanClubId, clubId, 'the seed sacked the manager before the rollover intake');
   assert.equal(arrivalsByDay.size, 2, `expected an intake at the start and at the rollover, got days ${[...arrivalsByDay.keys()].join()}`);
 
   const intake = newsFeed(game.world, { limit: 600 }).filter((n) => n.body.startsWith('The intake is in.'));
@@ -715,4 +719,53 @@ test('the academy intake is reported, for the manager club and nobody else', asy
     // the true best of the group, but not a different class of player.
     assert.ok(game.world.players[item!.playerId!].potential >= best - 8, `named ${game.world.players[item!.playerId!].potential} against a best of ${best}`);
   }
+});
+
+test('a gifted boy can be born anywhere, and he ends up where he belongs', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const { DEFAULT_CONFIG, tierOfClub } = await import('../core/schema.js');
+  const { overall, squadStrength } = await import('../rating.js');
+  const game = createGame({ ...DEFAULT_CONFIG, seed: 'gifted', nations: ['ENG'] });
+
+  // A ceiling drawn off reputation alone means the only boys who could play in
+  // the first division are the ones a first-division academy produced, so the
+  // top flight can restock from nowhere but itself. The bar is set where the
+  // ordinary draw cannot reach: an academy bonus and the generator's own
+  // spread put a handful of scholars six points above their club's standing
+  // and none eighteen above it.
+  const gifted: string[] = [];
+  // Signed before he was good enough: the buying club's bar is what a player
+  // is worth today, and this is somebody who is not worth it yet.
+  const earlyRisers: { ovr: number; squad: number; age: number }[] = [];
+  while (game.world.season <= 4) {
+    for (const e of step(game, 1)) {
+      if (e.type === 'PLAYER_CREATED') {
+        const p = e.payload.player;
+        if (!p.clubId || p.age > 18) continue;
+        const club = game.world.clubs[p.clubId];
+        if (tierOfClub(game.world, club.id) === 1) continue;
+        if (p.potential > club.reputation * 0.86 + 10 + 18) gifted.push(p.id);
+      }
+      if (e.type === 'PLAYER_TRANSFERRED') {
+        const r = e.payload.record;
+        if (!r.fromClubId || tierOfClub(game.world, r.toClubId) !== 1) continue;
+        if (tierOfClub(game.world, r.fromClubId) === 1) continue;
+        const p = game.world.players[r.playerId];
+        const to = squadStrength(game.world, r.toClubId);
+        if (p.age < 23 && overall(p) < to - 8 && p.potential > to) earlyRisers.push({ ovr: overall(p), squad: to, age: p.age });
+      }
+    }
+    if (game.world.day > 4 * game.world.seasonLength + 2) break;
+  }
+  assert.ok(gifted.length > 10, `only ${gifted.length} boys outside the top flight were drawn clear of their club's standing`);
+
+  // And somebody went down the pyramid to get one. Without that they sit where
+  // they were born, rated forty-five today and worth ninety one day, and no
+  // club whose bar is what a player is worth today ever bids.
+  const risen = gifted.filter((id) => {
+    const p = game.world.players[id];
+    return p.clubId !== null && tierOfClub(game.world, p.clubId) === 1;
+  });
+  assert.ok(risen.length > 0, `none of the ${gifted.length} gifted boys made it to the top flight`);
+  assert.ok(earlyRisers.length > 0, 'nobody was ever signed up the pyramid before he was good enough');
 });

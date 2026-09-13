@@ -150,6 +150,16 @@ test('a young player can be sent out on loan and shows up as gone', async ({ pag
     await row.click();
     const drawer = page.locator('.drawer');
     await expect(drawer).toBeVisible();
+    // The drawer has to sit above the sticky site header. It did not, so the
+    // top of it — Close included — belonged to whatever nav link happened to
+    // be over it, and which row you opened decided whether the page had
+    // scrolled far enough to matter.
+    const onTop = await drawer.getByRole('button', { name: 'Close' }).evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+      return el.contains(hit) ? 'the button' : (hit as HTMLElement | null)?.closest('header,nav')?.className ?? 'something else';
+    });
+    expect(onTop, 'the site header is covering the drawer').toBe('the button');
     const select = drawer.locator('select[aria-label="Loan club"]');
     if (await select.count()) {
       sent = name;

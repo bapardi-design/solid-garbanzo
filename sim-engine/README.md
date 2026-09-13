@@ -234,6 +234,100 @@ price is wrong on its own. What is missing is a reason for the pyramid's best cl
 keep their own: something about who wants to leave and who is worth keeping,
 rather than another number on the size of a squad.
 
+### Where the top flight was buying from, which was nowhere
+
+The question the table above leaves open — why the top flight cannot restock
+when the intake falls — has an answer, and it is not money, volume or
+willingness. Two measurements settle it.
+
+Count every transfer by the tier it left and the tier it joined, over seven
+seasons of one world: the first division loses 86 players on balance, and
+every division below it gains. It sells 205 down the pyramid and buys 118
+back. Then stand in a first-division club's shoes on a transfer day in season
+six: 2,169 players are listed, 661 of them midfielders, and **three** of those
+clear the line the club holds its own midfield to. One is affordable. The same
+count for defenders is five, and for goalkeepers ten.
+
+So the top flight's only real supplier is its own academy, and the reason is
+that a ceiling is drawn off the reputation of the club a boy happens to be
+born at. A second-division academy aims at the sixties; nobody it produces can
+ever play in the first division, however he develops. That is what pins the
+intake at three or four a club a year, and the intake is what turns the squad
+over every six years, which is the age pyramid.
+
+Two changes, which are worth nothing apart and hold together:
+
+- **one scholar in twelve is drawn eight to twenty-six points clear of his
+  club's standing**, the same odds everywhere, so a footballer can be born at
+  a small club
+- **a club will sign a boy under twenty-three whose ceiling clears its line,
+  not only a player whose rating already does** — without it the gifted boy
+  sits where he was born, rated forty-five today and worth ninety one day, and
+  nobody whose bar is what a player is worth today ever bids
+
+Over eight seasons and three seeds, against the same seeds without them:
+
+| | top flight, season 8 | its squad | world mean | fourth tier | the gap |
+| --- | --- | --- | --- | --- | --- |
+| before | 77.3 | 20.6 men | 50.5 | 45.9 | 31.4 |
+| the tail alone | 78.6 | 21.1 men | 52.2 | 48.5 | 30.1 |
+| the ceiling bar alone | 77.2 | 20.9 men | 50.7 | 46.2 | 31.0 |
+| both | 78.7 | 21.0 men | 51.7 | 47.1 | 31.6 |
+
+The top flight starts at 78.3 and used to end below it. It now ends above it,
+and the gap to the bottom division is no narrower than it was — the tail alone
+closes it by a point and a third, because the boys it creates stay where they
+were born. Goals per game drift over six seasons falls from +0.094 to +0.071.
+
+The age pyramid itself does not move: 34% of every squad is still sixteen to
+nineteen by season 8. This unblocks the thing that made it immovable rather
+than moving it. Cutting the intake to one or two a club, which is what the
+arithmetic wants, still empties the squads — 18.0 men in the top flight and
+the divisions converging hard — so the next attempt is about where a club
+finds bodies, not where it finds quality.
+
+### What the world does with the ones it does not need
+
+Counting what the world makes against what it removes says where the prime
+years actually go, and it is not the transfer market at all. Ninety-two clubs
+hold 2,139 players between them, 23.3 a club, and the academies make 291 a
+season:
+
+| | made | left the game | mean age | of those, released and never signed |
+| --- | --- | --- | --- | --- |
+| season 1 | 283 | 87 | 33.0 | 68 |
+| season 3 | 280 | 374 | 26.5 | 368 |
+| season 5 | 281 | 319 | 27.5 | 303 |
+| season 8 | 301 | 300 | 26.9 | 284 |
+
+291 a season into 2,139 places means a career of 7.3 years is all that fits,
+and the world balances the books by putting three hundred men a season out of
+football at twenty-seven — 95% of them players nobody signed after a release,
+not players who got old. The hole in the prime years is not a shortage of
+buyers or sellers. It is the retirement valve absorbing an overproduction of
+schoolboys, and a club is never short of bodies because the ones it discards
+are gone by the time it needs them.
+
+So the next attempt is the valve: a twenty-five-year-old released by a
+second-division club should drop down the pyramid, not leave the game, and the
+intake should fall to something a sixteen-year career can absorb — around 1.5 a
+club. Both halves at once, because either alone has already been measured and
+fails: a released man who survives longer just sits in the pool while the
+intake still floods it, and a smaller intake with the valve as it is empties
+the squads to 18 men.
+
+Measured and rejected this time, each across three seeds:
+
+- spreading the intake's quality within a year, the best scholar at the club's
+  line and the rest 8, 16, 22 and 26 points behind — the pyramid does not move
+  at all, 33% against 34%, and the world loses 4.7 rating points. The share is
+  volume arithmetic and quality has nothing to do with it
+- a club below its squad target listing nobody but genuine surplus and
+  expiring contracts — the top flight gains 0.8 men and the pyramid does not
+  move. Closing that valve cuts the top flight's own supply of listings as
+  much as it cuts its exports, and with the intake also halved it ends at 19.2
+  men rather than 20.6
+
 Measured and rejected along the way, each across three seeds:
 
 - a rare high-potential roll on young players — no effect on the decay

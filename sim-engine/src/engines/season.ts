@@ -130,7 +130,14 @@ export function startSeason(ctx: Ctx, season: number): void {
       // regressed off the world as it is generated: over 276 clubs a squad's
       // strength runs 0.86 × reputation + 10, either side of four points.
       const standing = club.reputation * 0.86 + 10;
-      const target = standing + academy - 3.5;
+      // One in twelve is born better than the club he was born at. Ceilings
+      // drawn off reputation alone mean the only boys in the world who could
+      // play in the first division are the ones a first-division academy
+      // produced, so the top flight can restock from nowhere but itself and
+      // its intake can never come down. A flat tail, the same everywhere, is
+      // the one thing that puts a footballer in a small club's intake.
+      const gifted = rng.chance(1 / 12) ? rng.int(8, 26) : 0;
+      const target = Math.min(96, standing + academy - 3.5 + gifted);
       const player = generatePlayer(ctx, club.id, pos, club.reputation * 0.8 + academy, rng.int(16, 18), club.nationId, target);
       ctx.emit('PLAYER_CREATED', { player });
       // Youth terms: a sixteen-year-old signs for a fraction of what he would
