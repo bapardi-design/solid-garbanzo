@@ -316,6 +316,72 @@ fails: a released man who survives longer just sits in the pool while the
 intake still floods it, and a smaller intake with the valve as it is empties
 the squads to 18 men.
 
+### Nobody is ever off the market, which is the root of it
+
+That attempt was made and it is written up here because it failed in an
+instructive way. Two counts run first, over eight seasons.
+
+What a top-flight club takes in and loses, per club per season:
+
+| in | | out | |
+| --- | --- | --- | --- |
+| academy | 3.46 | transfer | 3.14 |
+| transfer | 2.58 | loaned away | 3.74 |
+| free agent | **0.17** | contract ran out | 2.13 |
+| | | released | 0.87 |
+
+The academy is 56% of everything arriving and the free-agent pool is a
+rounding error, though 188 released men between 23 and 29 were sitting in it
+that somebody could have signed that day. Cut the intake and the club does try:
+transfers in go to 6.8 and out to 8.4, 7.05 signings against a hard cap of 8 a
+season. It is buying as fast as the rules allow and still shrinking.
+
+Then, why a top-flight club sold him:
+
+| | per club per season |
+| --- | --- |
+| expiring contract, 27 or over | **4.64** |
+| cash-strapped | 0.86 |
+| squad too big | 0.83 |
+| everyone has a price | 0.06 |
+
+One rule was doing it. A player 27 or over in his last contract year is listed
+at 0.7 × value — while `renewContracts` is separately trying to re-sign the
+same man. The club was offering its own first-choice centre half at a thirty
+per cent discount the same summer it wanted to keep him, and the sale won 4.6
+times a season.
+
+Making the market and the renewal agree on who the club keeps does exactly
+what it should: those sales fall from 4.64 to 0.01. And the total does not
+move, because the same players are sold through the catch-all instead — 3.98 a
+season at "everyone has a price" against 0.06 before, at a premium rather than
+a discount. **There is no such thing as not for sale.** The last rule in
+`buildMarket` puts a price on every player beyond the starters, and on the
+starters too at a club under 80 reputation, so blocking any one route only
+moves the sale to the next one. That is why ten attempts at this all behaved
+the same way: whatever is done to the inflow, the outflow matches it.
+
+Giving the model a real not-for-sale state — a man the club means to keep goes
+nowhere unless it is short of money or over its squad limit — does move the
+pyramid, and the academy shrinks itself into the bargain, because a club that
+keeps its own has no room for scholars and takes 2.4 rather than 3.5:
+
+| | 16-19 | 24-27 | average age | top flight | its squad |
+| --- | --- | --- | --- | --- | --- |
+| season 1 | 12% | 34% | 24.7 | 78.3 | 24.6 men |
+| season 8, as it ships | 34% | 11% | 22.9 | 78.7 | 21.0 men |
+| season 8, nobody for sale | 25% | 14% | 24.5 | 73.9 | 18.7 men |
+
+Not shipped. The average age is right and the shape is not: the boys are
+replaced by 28-to-31-year-olds, 26% of every squad against 17%, and the top
+flight pays 4.8 rating points and two more players for it. A club that keeps
+everyone never buys better, and nothing in the world makes quality except the
+academy it just stopped needing.
+
+So the pyramid is not a transfer-market problem and never was. It is that the
+only source of new quality is the academy, and the only way out of the game is
+retirement, and those two facts fix the turnover rate whatever the market does.
+
 Measured and rejected this time, each across three seeds:
 
 - spreading the intake's quality within a year, the best scholar at the club's
