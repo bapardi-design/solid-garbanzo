@@ -592,7 +592,25 @@ countries. Written out as JSON, with no compression:
 
 It grows about 150 KB gzipped a season and does not stop: retired players are
 kept for ever so their careers can be read, and the transfer log runs from
-2,000 rows after one season to 39,000 after ten. A season itself still takes
+2,000 rows after one season to 39,000 after ten. What is in it, for the real
+world:
+
+| | season 1 | season 5 |
+| --- | --- | --- |
+| fixtures | 8.25 MB (59%) | 8.34 MB (42%) |
+| players | 4.16 MB (30%) | 7.69 MB (39%) |
+| transfers | 0.25 MB | 2.27 MB |
+| contracts | 0.70 MB | 0.69 MB |
+| everything else | under 0.6 MB | under 0.7 MB |
+
+The fixtures do not grow — 10,380 at season one and 10,380 at season five,
+because a season's are dropped when the next is scheduled — and six of those
+eight megabytes are the match reports of the season in progress, 5,340 of
+them, each carrying a line for every player who appeared. That is the bulk of
+what a save weighs, and it is a season of football rather than an accumulation:
+pruning it means deciding that a match from November cannot be read in May.
+What does accumulate is players, from retirees kept for their records, and the
+transfer log. A season itself still takes
 about the same time to play at season ten as at season one, five to seven
 seconds, so the simulation does not slow down — it is only the state that
 accumulates. News is already capped at 600 items.
