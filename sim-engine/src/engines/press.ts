@@ -10,6 +10,7 @@ import { contractOf, isRealWorld, leagueOf, nextId, seasonDay, squad, tierFromLe
 import { averageRating, overall } from '../rating.js';
 import { computeTable, positionOf } from '../matchday/table.js';
 import { SUMMER_WINDOW, WINTER_WINDOW, clubNeeds, inTransferWindow, leagueLines } from './transfers.js';
+import { potentialRange } from './boardroom.js';
 
 export function currencyFor(world: World, clubId: string | null): string {
   const nationId = clubId ? world.clubs[clubId]?.nationId : null;
@@ -133,6 +134,42 @@ function managerNews(ctx: Ctx, events: Event[]): Draft[] {
     }
   }
   return drafts;
+}
+
+/** Scholars are sixteen to eighteen, and eighteen is the one that takes 'an'. */
+const article = (age: number): string => (age === 18 ? 'an' : 'a');
+
+/**
+ * Intake day. The academy has always produced three or four players a season
+ * and never said so: they simply appeared in the squad list with no more
+ * ceremony than a signing nobody made. Only the manager's own club is
+ * reported — ninety clubs taking scholars is not news.
+ */
+function academyNews(ctx: Ctx, events: Event[]): Draft[] {
+  const { world } = ctx;
+  const human = world.humanClubId;
+  if (!human) return [];
+  const arrived = events
+    .filter((e) => e.type === 'PLAYER_CREATED' && e.payload.player.clubId === human)
+    .map((e) => world.players[(e as Extract<Event, { type: 'PLAYER_CREATED' }>).payload.player.id])
+    .filter((p): p is Player => !!p);
+  if (arrived.length === 0) return [];
+  const club = world.clubs[human];
+  // The coaches rate them by what they might become, not by what they are.
+  const rated = [...arrived].sort((a, b) => potentialRange(world, b.id).high - potentialRange(world, a.id).high);
+  const pick = rated[0];
+  const range = potentialRange(world, pick.id);
+  const lines = rated.map((p) => {
+    const r = potentialRange(world, p.id);
+    return `${posName(p)} ${p.name}, ${p.age} — the scouts see ${r.low}-${r.high}`;
+  });
+  return [{
+    category: 'contract',
+    headline: `${arrived.length} join ${club.name} from the academy`,
+    body: `The intake is in.\n${lines.join('\n')}\n\nThe coaches like ${pick.name} best of them: ${article(pick.age)} ${pick.age}-year-old ${posName(pick).toLowerCase()} they think could reach ${range.high}.`,
+    clubIds: [club.id],
+    playerId: pick.id,
+  }];
 }
 
 function injuryNews(ctx: Ctx, events: Event[]): Draft[] {
@@ -367,6 +404,7 @@ export function dailyPress(ctx: Ctx): void {
     ...transferNews(ctx, events),
     ...managerNews(ctx, events),
     ...injuryNews(ctx, events),
+    ...academyNews(ctx, events),
     ...matchNews(ctx, events),
     ...seasonNews(ctx, events),
     ...windowNews(ctx),

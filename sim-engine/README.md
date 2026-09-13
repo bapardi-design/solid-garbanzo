@@ -295,6 +295,33 @@ tier filled to thirty and the top flight sat at twenty-one, because a cheap
 starter is easy to improve on and a dear one is not, and because nothing ever
 forced a small club to let anyone go.
 
+## Intake day
+
+The academy has always turned out three or four players a club a season and
+never said so: they appeared in the squad list with no more ceremony than a
+signing nobody made. The news feed now carries one item a club a season, for
+the manager's club only — ninety clubs taking scholars is not news — naming
+everyone who came through with the ceiling the scouts put on him, and singling
+out whoever they rate highest. The scouted range is the same estimate the
+scout report gives, so the two never disagree about the same boy; a club with
+a poor scouting setup gets a wider range on both.
+
+Written against what the intake actually is, not what it looks like. Measured
+over three seeds, the intake at the very top (reputation 90 and up) averages a
+ceiling of 85.9 against a squad of 85.2, and the best of them reaches 92 — the
+aim in `startSeason` is deliberately the side they are trying to get into, and
+the news reports it rather than flattering it. By tier the intake's ceiling
+against its club's squad strength runs −5.4, +0.6, +1.1, −1.1 from the top
+division down, and between 8% and 27% of scholars are drawn more than five
+points clear of the squad they join.
+
+Two intakes are in reach in a manager's first year: the one the career opens on
+and the one at the first rollover. The rollover item is the one that goes
+missing when something is wrong, and it goes missing honestly — a manager
+sacked in May has no club when the scholars arrive in June, which is what the
+first seed the test was written against did.
+
+
 ## Report
 
 `--report FILE` writes a single HTML file with no external scripts: goals and

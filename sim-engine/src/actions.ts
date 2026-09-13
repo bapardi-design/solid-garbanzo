@@ -9,7 +9,7 @@ import { contractOf, isRealWorld, nextId, squad, tierCode, tierOfClub } from './
 import { overall, playerValue, wageDemand, weeklyWageBill } from './rating.js';
 import { MAX_SQUAD, MIN_PER_POSITION, buildMarket, inTransferWindow, loanSuitors, sendOnLoan, type Listing } from './engines/transfers.js';
 import { computeTable, positionOf } from './matchday/table.js';
-import { MAX_LEVEL, openBoardroom, scoutSpread, ticketFactor } from './engines/boardroom.js';
+import { MAX_LEVEL, openBoardroom, potentialRange, ticketFactor } from './engines/boardroom.js';
 import { projectedGate, projectedPrize, weeklyCommercial, weeklyOperations } from './engines/finance.js';
 import { currencyFor } from './engines/press.js';
 import { PROMISE_DAYS, squadConcerns, type Concern } from './engines/morale.js';
@@ -417,8 +417,8 @@ export interface ScoutReport { potentialLow: number; potentialHigh: number; verd
 /** A scout's view of a player: a potential range and a plain-language verdict. */
 export function scoutReport(world: World, playerId: string): ScoutReport {
   const p = world.players[playerId];
-  const noise = (hashString(`${world.config.seed}:${playerId}`) % 5) - 2;
-  const centre = p.potential + noise;
+  const { low, high } = potentialRange(world, playerId);
+  const centre = (low + high) / 2;
   const ovr = overall(p);
   const attrs = Object.entries(p.attrs).filter(([k]) => p.position === 'GK' || k !== 'goalkeeping') as [string, number][];
   const sorted = [...attrs].sort((a, b) => b[1] - a[1]);
@@ -429,8 +429,7 @@ export function scoutReport(world: World, playerId: string): ScoutReport {
     : ovr >= 72 ? 'Solid first-team player at top-flight level.'
     : ovr >= 60 ? 'Useful squad player; a starter in the lower leagues.'
     : 'Limited ability; lower-league level.';
-  const spread = scoutSpread(world, p.clubId ?? world.humanClubId ?? '');
-  return { potentialLow: Math.max(1, Math.round(centre - spread)), potentialHigh: Math.min(99, Math.round(centre + spread)), verdict, strengths: sorted.slice(0, 2).map(([k]) => k), weaknesses: sorted.slice(-2).map(([k]) => k) };
+  return { potentialLow: low, potentialHigh: high, verdict, strengths: sorted.slice(0, 2).map(([k]) => k), weaknesses: sorted.slice(-2).map(([k]) => k) };
 }
 
 export interface Honour { season: number; title: string; kind: 'league' | 'cup' | 'award'; detail: string }
