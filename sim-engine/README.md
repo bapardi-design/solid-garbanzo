@@ -510,6 +510,32 @@ the minute he walked. The eighteen that still read ninety were sent off in the
 ninetieth.
 
 
+## What is checked
+
+`checkInvariants` covers the world's structure — squads against club membership,
+contracts against players, fixtures against the day index — and runs at every
+season boundary in the tests. It says nothing about what happens in a match,
+which is where the last two defects lived, so two sweeps now do:
+
+- **eligibility**, over two seasons and some three thousand matches: nobody
+  retired, injured, suspended or belonging to another club takes the field,
+  every side uses between eleven and fourteen men, nobody plays twice in a day,
+  and nobody records more than ninety minutes. Availability is read before the
+  day is played, so an injury with one day left is allowed — it heals during
+  the tick, before kick-off
+- **dismissals**, over two seasons: nobody is credited a minute past his red
+  card
+
+Two more were run as one-offs and found nothing, which is worth writing down so
+nobody looks again without reason. Money: every movement in a club's balance
+over three seasons is explained by a ledger entry, a transfer fee or a contract
+pay-off, and all 106 fees paid went to another club rather than into the air —
+the ledger is updated in the same three places the balance is, so the books
+cannot drift apart. Tables: 628 snapshots over three seasons agree with the
+fixtures behind them on played, won, drawn, lost, goals for and against, points
+as 3W + D, and the order clubs sit in.
+
+
 ## Report
 
 `--report FILE` writes a single HTML file with no external scripts: goals and

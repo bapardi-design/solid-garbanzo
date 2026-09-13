@@ -129,3 +129,47 @@ test('careerReport renders once a season is complete', async () => {
   const html = careerReport(game);
   assert.ok(html && html.includes('Simulation Annual') && html.includes('Final standings'));
 });
+
+test('nobody plays who should not be on the pitch', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const { DEFAULT_CONFIG } = await import('../core/schema.js');
+  const game = createGame({ ...DEFAULT_CONFIG, seed: 'eligibility', nations: ['ENG'] });
+  let matches = 0;
+  while (game.world.season <= 2) {
+    // Availability as it stands before the day is played. An injury with one
+    // day left heals during the tick, before kick-off, so only two or more
+    // days out means he should not be playing.
+    const atKickOff = new Map<string, { inj: number; susp: number; club: string | null; retired: boolean }>();
+    for (const id in game.world.players) {
+      const p = game.world.players[id];
+      atKickOff.set(id, { inj: p.injuryDays, susp: p.suspension, club: p.clubId, retired: p.retired });
+    }
+    const playedToday = new Map<string, number>();
+    for (const e of step(game, 1)) {
+      if (e.type !== 'MATCH_PLAYED') continue;
+      matches++;
+      const fixture = game.world.fixtures[e.payload.fixtureId];
+      const used: Record<string, number> = { [fixture.homeClubId]: 0, [fixture.awayClubId]: 0 };
+      for (const [pid, st] of Object.entries(e.payload.playerStats)) {
+        if (!st.minutes) continue;
+        const was = atKickOff.get(pid);
+        const who = game.world.players[pid]?.name ?? pid;
+        assert.ok(was, `${who} played without existing at kick-off`);
+        assert.ok(!was!.retired, `${who} played after retiring`);
+        assert.ok(was!.inj <= 1, `${who} played with ${was!.inj} days of injury left`);
+        assert.equal(was!.susp, 0, `${who} played a match he was banned for`);
+        assert.ok(was!.club === fixture.homeClubId || was!.club === fixture.awayClubId, `${who} played for neither club`);
+        assert.ok(st.minutes > 0 && st.minutes <= 90, `${who} played ${st.minutes} minutes`);
+        used[was!.club!]++;
+        playedToday.set(pid, (playedToday.get(pid) ?? 0) + 1);
+      }
+      for (const [clubId, n] of Object.entries(used)) {
+        // Eleven, plus at most three off the bench.
+        assert.ok(n >= 11 && n <= 14, `${game.world.clubs[clubId].name} used ${n} players`);
+      }
+    }
+    for (const [pid, n] of playedToday) assert.equal(n, 1, `${game.world.players[pid]?.name} played ${n} matches in a day`);
+    if (game.world.day > 2 * game.world.seasonLength + 2) break;
+  }
+  assert.ok(matches > 2000, `only ${matches} matches swept`);
+});
