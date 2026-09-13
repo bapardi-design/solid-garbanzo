@@ -305,11 +305,19 @@ function settle(ctx: Ctx, s: Settlement): MatchOutcome {
 
   const playerStats: Record<string, PlayerMatchStats> = {};
   const injuries: { playerId: string; days: number }[] = [];
+  // A man sent off stops playing there and then. Counting him by the halves he
+  // was named in gave him the full ninety for a match he spent in the dressing
+  // room — 607 of 9,152 matches over four seasons — and with it a clean-sheet
+  // bonus, a full match's fitness and a full match's injury risk.
+  const dismissed = new Map<string, number>();
+  for (const c of s.cards) if (c.kind !== 'yellow') dismissed.set(c.playerId, c.minute);
   const tally = (first: Selection, second: Selection, goalsFor: number, goalsAgainst: number) => {
     const ids = [...new Set([...first.playerIds, ...second.playerIds])].sort();
     for (const id of ids) {
       const p: Player = world.players[id];
-      const minutes = (first.playerIds.includes(id) ? 45 : 0) + (second.playerIds.includes(id) ? 45 : 0);
+      const cameOn = first.playerIds.includes(id) ? 0 : 45;
+      const wentOff = dismissed.get(id) ?? (second.playerIds.includes(id) ? 90 : 45);
+      const minutes = Math.max(0, wentOff - cameOn);
       const scored = s.goals.filter((g) => g.scorerId === id).length;
       const assisted = s.goals.filter((g) => g.assistId === id).length;
       let rating = 6.0 + scored * 1.0 + assisted * 0.5;

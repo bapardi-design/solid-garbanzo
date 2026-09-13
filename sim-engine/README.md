@@ -499,6 +499,16 @@ elsewhere happened to push a red card into the first half of the match it
 watches. The bench now excludes him, and `finishMatch` refuses him whatever it
 is asked for, because a saved game or a script does not go through the screen.
 
+Auditing every match of four seasons for that — nine thousand of them — turned
+up the same mistake in the engine itself, and not only in the manager's own
+games. A player's minutes were the halves he was named in, 45 for each, so a
+man sent off in the twentieth minute was credited the full ninety: 607 matches
+in 9,152. With the minutes went a clean sheet he was not on the pitch for, a
+whole match's fitness cost and a whole match's injury risk, all of them
+computed from the same number. He is now credited from the minute he came on to
+the minute he walked. The eighteen that still read ninety were sent off in the
+ninetieth.
+
 
 ## Report
 
