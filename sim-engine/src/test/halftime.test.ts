@@ -797,3 +797,28 @@ test('a man sent off in the first half cannot come back on at half time', async 
     assert.equal(game.world.players[off].stats.minutes % 45, 0, 'minutes come in halves');
   }
 });
+
+test('a man sent off is credited the minutes he played, not the match', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const { DEFAULT_CONFIG } = await import('../core/schema.js');
+  const game = createGame({ ...DEFAULT_CONFIG, seed: 'dismissals', nations: ['ENG'] });
+  let dismissals = 0;
+  while (game.world.season <= 2) {
+    for (const e of step(game, 1)) {
+      if (e.type !== 'MATCH_PLAYED') continue;
+      const stats = e.payload.playerStats ?? {};
+      for (const c of e.payload.report.cards) {
+        if (c.kind === 'yellow') continue;
+        const st = stats[c.playerId];
+        if (!st) continue;
+        dismissals++;
+        // He walked at c.minute; counting him by the halves he was named in
+        // gave him the full ninety, a clean sheet he was not there for, and a
+        // whole match's worth of fitness and injury risk.
+        assert.ok(st.minutes <= c.minute, `${c.playerId} played ${st.minutes} of a match he left in the ${c.minute}th minute`);
+      }
+    }
+    if (game.world.day > 2 * game.world.seasonLength + 2) break;
+  }
+  assert.ok(dismissals > 40, `only ${dismissals} sendings-off to check`);
+});
