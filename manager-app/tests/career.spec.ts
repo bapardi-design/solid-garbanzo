@@ -213,3 +213,33 @@ test('a decision on the desk can be signed off and moves the money', async ({ pa
   }
   expect(errors, errors.join('\n')).toEqual([]);
 });
+
+test('every panel fits a phone', async ({ page }) => {
+  // The world is meant to be shown to people, and they will open it on a
+  // phone. A table or a card wider than the screen is the whole page sliding
+  // sideways, which is the one layout fault a reader cannot work around.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const errors = watchForErrors(page);
+  await startCareer(page, 'phone');
+
+  const tooWide: string[] = [];
+  for (const name of ['Home', 'News', 'Squad', 'Transfers', 'Tactics', 'Fixtures', 'Competitions', 'Boardroom', 'Finances', 'Club', 'Jobs']) {
+    await tab(page, name).click();
+    await expect(page.locator('.panel, .cards, .stack').first()).toBeVisible();
+    const over = await page.evaluate(() => {
+      const vw = document.documentElement.clientWidth;
+      const wide: string[] = [];
+      for (const el of Array.from(document.querySelectorAll('body *'))) {
+        const r = (el as HTMLElement).getBoundingClientRect();
+        if (r.width === 0) continue;
+        // A table or a diagram may scroll inside its own box; the page may not.
+        if ((el as HTMLElement).closest('.scroll')) continue;
+        if (r.right > vw + 1 || r.left < -1) wide.push(`${el.tagName.toLowerCase()}.${String((el as HTMLElement).className).split(' ')[0]}`);
+      }
+      return { page: document.documentElement.scrollWidth, vw, wide: [...new Set(wide)].slice(0, 4) };
+    });
+    if (over.page > over.vw + 1 || over.wide.length) tooWide.push(`${name}: page ${over.page}px in ${over.vw}px${over.wide.length ? ` — ${over.wide.join(', ')}` : ''}`);
+  }
+  expect(tooWide, tooWide.join('\n')).toEqual([]);
+  expect(errors, errors.join('\n')).toEqual([]);
+});
