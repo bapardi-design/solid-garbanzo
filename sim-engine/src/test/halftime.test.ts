@@ -665,3 +665,54 @@ test('a match report carries numbers that agree with the score', async () => {
   assert.ok(perTeam > 9 && perTeam < 18, `${perTeam.toFixed(1)} shots a team`);
   assert.ok(onTarget / shots > 0.25 && onTarget / shots < 0.55, `${((onTarget / shots) * 100).toFixed(0)}% on target`);
 });
+
+test('the academy intake is reported, for the manager club and nobody else', async () => {
+  const { createGame, step } = await import('../browser/engine.js');
+  const { takeOverClub, newsFeed } = await import('../actions.js');
+  const { DEFAULT_CONFIG } = await import('../core/schema.js');
+  const game = createGame({ ...DEFAULT_CONFIG, seed: 'intake-3', nations: ['ENG'] });
+  const clubId = Object.values(game.world.clubs).sort((a, b) => b.reputation - a.reputation)[0].id;
+  takeOverClub(game.ctx, clubId, 'Intake Manager');
+
+  // Who came through has to come off the events: a generated seventeen-year-old
+  // who never got a game looks exactly like a scholar from the squad list. Two
+  // intakes are in reach — the one the career opens on and the one at the first
+  // rollover, which is the path that matters and the one a sacking hides.
+  const arrivalsByDay = new Map<number, string[]>();
+  for (let i = 0; i < 401 && game.world.season === 1; i++) {
+    for (const e of step(game, 1)) {
+      if (e.type !== 'PLAYER_CREATED') continue;
+      if (e.payload.player.clubId !== game.world.humanClubId) continue;
+      const on = arrivalsByDay.get(game.world.day) ?? [];
+      on.push(e.payload.player.id);
+      arrivalsByDay.set(game.world.day, on);
+    }
+  }
+  assert.equal(game.world.humanClubId, clubId, 'the seed sacked the manager before the rollover intake');
+  assert.equal(arrivalsByDay.size, 2, `expected an intake at the start and at the rollover, got days ${[...arrivalsByDay.keys()].join()}`);
+
+  const intake = newsFeed(game.world, { limit: 600 }).filter((n) => n.body.startsWith('The intake is in.'));
+  assert.equal(intake.length, arrivalsByDay.size, `${arrivalsByDay.size} intakes produced ${intake.length} items`);
+
+  for (const [day, ids] of arrivalsByDay) {
+    const item = intake.find((n) => n.day === day);
+    assert.ok(item, `no item for the intake on day ${day}`);
+    assert.deepEqual(item!.clubIds, [clubId], 'the item belongs to the manager club');
+    assert.ok(item!.headline.startsWith(`${ids.length} join `), `headline ${item!.headline} for ${ids.length} arrivals`);
+    // Everyone who came through is named, and nobody is named twice.
+    for (const id of ids) assert.ok(item!.body.includes(game.world.players[id].name), `${game.world.players[id].name} came through and went unmentioned`);
+    assert.equal(item!.body.split('\n').filter((l) => l.includes('the scouts see')).length, ids.length, 'one line a scholar');
+    // No other club's intake reaches the feed.
+    for (const c of Object.values(game.world.clubs)) {
+      if (c.id !== clubId) assert.ok(!item!.headline.includes(c.name), `${c.name} intake was reported`);
+    }
+    // The named prospect is one of the arrivals, the one the scouts rate
+    // highest, and he reads as English.
+    assert.ok(!/\ba 18-year-old\b/.test(item!.body), `ungrammatical: ${item!.body}`);
+    assert.ok(ids.includes(item!.playerId ?? ''), 'the item points at somebody who came through');
+    const best = Math.max(...ids.map((id) => game.world.players[id].potential));
+    // Scouting reports the ceiling with noise, so the pick can be a shade off
+    // the true best of the group, but not a different class of player.
+    assert.ok(game.world.players[item!.playerId!].potential >= best - 8, `named ${game.world.players[item!.playerId!].potential} against a best of ${best}`);
+  }
+});

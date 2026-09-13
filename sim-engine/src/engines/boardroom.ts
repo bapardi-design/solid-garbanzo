@@ -8,7 +8,7 @@ import type { Ctx } from '../core/context.js';
 import type { FinanceEntry } from '../core/events.js';
 import type { Boardroom, Decision, DecisionOption, Facilities, Project, World } from '../core/schema.js';
 import { isRealWorld, nextId, seasonDay } from '../core/schema.js';
-import { clamp } from '../core/rng.js';
+import { clamp, hashString } from '../core/rng.js';
 import { weeklyCommercial } from './finance.js';
 import { currencyFor, money } from './press.js';
 
@@ -361,6 +361,18 @@ export const recoveryFactor = (world: World, clubId: string): number => 1 - (lvl
 export const academyBonus = (world: World, clubId: string): number => (lvl(world, clubId, 'academy') - 2) * 2.5;
 /** Scout report spread: better scouting narrows the range. */
 export const scoutSpread = (world: World, clubId: string): number => Math.max(1, 4 - (lvl(world, clubId, 'scouting') - 2));
+
+/**
+ * What the scouts will say a player's ceiling is: never the number itself, and
+ * the better the scouting the narrower the guess. Shared so a scout report and
+ * an academy intake describe the same boy the same way.
+ */
+export function potentialRange(world: World, playerId: string): { low: number; high: number } {
+  const p = world.players[playerId];
+  const centre = p.potential + ((hashString(`${world.config.seed}:${playerId}`) % 5) - 2);
+  const spread = scoutSpread(world, p.clubId ?? world.humanClubId ?? '');
+  return { low: Math.max(1, Math.round(centre - spread)), high: Math.min(99, Math.round(centre + spread)) };
+}
 /** Gate price multiplier set by the manager. */
 export const ticketFactor = (world: World, clubId: string): number =>
   world.boardroom && world.boardroom.clubId === clubId ? world.boardroom.ticketLevel : 1;
