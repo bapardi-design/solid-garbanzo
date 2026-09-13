@@ -615,13 +615,14 @@ about the same time to play at season ten as at season one, five to seven
 seconds, so the simulation does not slow down — it is only the state that
 accumulates. News is already capped at 600 items.
 
-A local career goes to IndexedDB, which is happy with that. A cloud career is
-posted to `/api/careers` as raw JSON in the request body, and `save()` runs
-after every match the manager plays — so a real-world cloud career uploads
-fourteen megabytes, then twenty, once per matchday, forty-odd times a season.
-Gzipping the snapshot before it goes would cut it by about ten to one. It is
-not done here because the cloud path needs a signed-in account and a live
-database to exercise, and a storage format is not a thing to change untested.
+A career goes to IndexedDB on the device, which is happy with any of this. A
+cloud career is posted to `/api/careers` as raw JSON in the request body, and
+`save()` runs after every match the manager plays — but only a fictional world
+is ever posted: `NewCareer` takes the cloud path on `signedIn && worldKind ===
+'custom'` and nothing else, and it tells the manager so when he picks the real
+world. So the upload is the one to one and a half megabytes of a fictional
+world rather than the fourteen of a real one. Gzipping it would still cut that
+about ten to one, which is worth having on a phone and is not urgent.
 
 
 ## Explorer
