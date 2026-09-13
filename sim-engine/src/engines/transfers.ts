@@ -180,7 +180,14 @@ export function runTransferDay(ctx: Ctx): void {
       const wageRoom = club.wageBudget - weeklyWageBill(world, clubId);
       const candidates = market
         .filter((l) => l.player.position === need.pos && l.fromClubId !== clubId && !sold.has(l.player.id) && !l.player.retired)
-        .filter((l) => overall(l.player) >= need.minRating && l.askingPrice <= club.transferBudget)
+        // A club signs a boy on what he will be worth, not on what he is worth
+        // today. The rating bar alone is why the top flight could not restock:
+        // the whole world offered it three listed midfielders who cleared its
+        // line, all of them at clubs like itself, so its own academy was its
+        // only supply. This is no use without somebody below drawing a ceiling
+        // worth having — and that tail is no use without this, because a boy
+        // who will be worth ninety is rated forty-five today and nobody bids.
+        .filter((l) => (overall(l.player) >= need.minRating || (l.player.age < 23 && l.player.potential >= need.minRating + 2)) && l.askingPrice <= club.transferBudget)
         .map((l) => {
           const wage = Math.round(Math.max(l.fromClubId ? contractOf(world, l.player.id)?.wage ?? 0 : 0, wageDemand(l.player, real)) * (l.fromClubId ? 1.1 : 1.0) * 10) / 10;
           return { l, wage, score: overall(l.player) + (l.player.age < 24 ? (l.player.potential - overall(l.player)) * 0.3 : 0) - l.askingPrice / priceScale };
